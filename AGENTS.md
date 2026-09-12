@@ -41,3 +41,17 @@
 
 遇到 DNS、解析或 fetch 错误时，在沙箱外重试。遇到配额错误时告知用户，建议 `npx ctx7@latest login` 或配置 `CONTEXT7_API_KEY`；不得静默改用训练记忆。未收录目标时说明缺口，再查官方文档或源码。
 <!-- context7 -->
+
+## Agent skills
+
+### Issue tracker
+
+Issues and specs live in GitHub Issues; use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, and `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repository; consume root `CONTEXT.md` and `docs/adr/` when present. See `docs/agents/domain.md`.
