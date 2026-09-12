@@ -1,6 +1,6 @@
 # 技术选型与行为约定
 
-状态：2026-09-12 经用户三轮决策确认。当前交付为迭代 0；后续能力以 roadmap 的验收结果为准。
+状态：2026-09-12 经用户确认；迭代 1 已实现并完成本地 fixture 验收，真实实例兼容验收仍待外部条件。
 
 ## 已确认的产品边界
 
@@ -8,7 +8,7 @@
 - 同时服务终端开发者、AI Agent 和 CI，默认非交互执行。
 - 官方 YMFE/yapi 为基线，再用实际部署实例验收，不承诺各类 fork。
 - 单 npm 包 `openyapi-cli`，可执行命令 `openyapi`，MIT 许可证。
-- 本次初始化、技术选型与迭代计划；本次不实现全部业务端点，也不发布 npm。
+- 迭代 1 实现六个只读端点；写入、导入和 npm 发布不在本次范围。
 
 ## 技术选型
 
@@ -32,22 +32,27 @@
 ```text
 src/main.ts          进程入口与包版本读取
 src/cli.ts           命令解析、执行与退出码
+src/config.ts        profile 存储与配置优先级
+src/client.ts        GET 传输及 YApi 响应信封校验
+src/queries.ts       端点映射、身份预检与分页协议
+src/errors.ts        稳定错误分类
 src/output.ts        结果格式化
 test/cli.test.mjs    编译后 CLI 的黑盒测试
+test/sprint1.test.mjs 编译后 CLI + 本地 HTTP fixture 验收
 scripts/            清理和安装包验收
 docs/               设计、API 范围、迭代计划
 ```
 
-迭代 1 随实现增加配置和 YApi 客户端模块。CLI 负责将参数映射成业务调用；配置模块解析 profile 和凭据；客户端封装 URL、认证、传输与响应检查，不打印结果；输出模块管理呈现。优先通过少量清晰接口隔开这些职责，不预建空目录或通用插件框架。首版不导出公共 SDK，内部模块不构成 npm API 承诺。
+CLI 负责参数和呈现；配置模块解析 profile 和凭据；客户端只封装 URL、认证、传输与响应信封；查询模块管理端点语义、身份预检和分页不变量。首版不导出公共 SDK，内部模块不构成 npm API 承诺。
 
 ## 输出与退出码
 
 - 默认 `--format json`，成功时 stdout 输出单个 JSON 值，末尾换行。
-- `--format table` 面向人工阅读；当前支持 info 的键值表，业务数据格式随查询命令补齐。
+- `--format table` 面向人工阅读；项目、分类、接口详情/列表和树使用固定摘要列，完整业务字段保留在 JSON 中。
 - `--help`、`--version` 为文本例外；无参数显示帮助。
 - 错误写入 stderr，结构为 `{"error":{"code":"USAGE_ERROR","message":"..."}}`；失败时不混入成功数据。
-- 退出码：0 成功，2 参数/用法错误，1 执行失败。后续认证、HTTP、业务失败以稳定的 error.code 区分，不扩展大量退出码。
-- 当前只实现 USAGE_ERROR 和 INTERNAL_ERROR；未来网络/业务错误码随客户端实现明确。
+- 退出码：0 成功，2 参数/用法错误，1 执行失败，不为每种错误扩展进程退出码。
+- 稳定 `error.code`：`USAGE_ERROR`、`CONFIG_ERROR`、`PROJECT_MISMATCH`、`NETWORK_ERROR`、`TIMEOUT_ERROR`、`HTTP_ERROR`、`YAPI_ERROR`、`RESPONSE_ERROR`、`INTERNAL_ERROR`。
 
 ## 配置与认证（迭代 1 实现）
 
@@ -55,11 +60,15 @@ docs/               设计、API 范围、迭代计划
 
 实现约定：非敏感参数使用“命令参数 > 环境变量 > 所选 profile”；profile 通过 `--profile` 或 `OPENYAPI_PROFILE` 选择；服务地址、项目 ID 和 token 分别使用 `OPENYAPI_BASE_URL`、`OPENYAPI_PROJECT_ID`、`OPENYAPI_TOKEN`。token 环境变量优先于本地保存值。缺少必要配置时立即失败，不启动交互问答。
 
-profile 保存在操作系统的用户配置目录；Linux 使用 XDG_CONFIG_HOME 或 ~/.config，Windows 使用 APPDATA，macOS 使用用户 Library/Application Support。这些路径仅为实现约定，当前骨架不会读取或写入配置。
+profile 保存在操作系统的用户配置目录；`XDG_CONFIG_HOME` 显式设置时优先，否则 Linux 使用 `~/.config`、Windows 使用 `APPDATA`、macOS 使用 `~/Library/Application Support`。CLI 提供 `config set/show/list/delete`、`config token set --stdin` 与 `config token unset`；查看仅显示 token 是否已配置。普通 `config set` 更新保留已存 token。
 
 本机 token 保存必须由用户显式执行配置命令，并从 stdin 读入，避免把 token 放进命令历史。Unix 上配置目录/文件限制为当前用户可访问；配置查看始终隐藏 token。CI 使用环境变量；不将凭据写入仓库，不在诊断中输出携带 token 的 URL 或请求体。
 
 YApi 文档使用项目 token：GET 放 query、POST 放 body；不默认转换为 Bearer header。认证实际效果须对选定服务端版本做集成验收。
+
+只读查询在提供 project ID 时先执行一次认证的 `/api/project/get` 身份预检；项目查询本身复用该请求。预检返回 `_id` 不匹配时使用 `PROJECT_MISMATCH` 停止，不发送目标查询。`interface get` 和按分类列举只要求各自 ID、base URL 与 token；未提供 project ID 时不增加身份预检。
+
+分页默认 `page=1`、`limit=10`。显式 `--all` 从第一页按数字 limit 遍历，拒绝重复 ID、总数/总页数变化、提前空页和最终数量不一致；结果完整成功前不写 stdout。该检查证明静态数据集的一致读取，不承诺并发修改或不稳定排序下的快照语义。
 
 ## 写入约定（迭代 2 实现）
 

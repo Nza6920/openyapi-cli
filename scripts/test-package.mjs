@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,14 +12,39 @@ const npmCli = process.env.npm_execpath;
 assert.ok(npmCli, 'Run this check with npm run test:package');
 const metadata = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
-function execute(command, args, cwd) {
+function execute(command, args, cwd, options = {}) {
   const result = spawnSync(command, args, {
     cwd,
     encoding: 'utf8',
-    env: { ...process.env, npm_config_cache: join(staging, 'npm-cache') },
+    env: {
+      ...process.env,
+      npm_config_cache: join(staging, 'npm-cache'),
+      ...options.env,
+    },
+    input: options.input,
   });
   assert.equal(result.status, 0, result.error?.message ?? result.stderr);
   return result.stdout;
+}
+
+function executeAsync(command, args, cwd, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      env: { ...process.env, ...options.env },
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8').on('data', (chunk) => { stdout += chunk; });
+    child.stderr.setEncoding('utf8').on('data', (chunk) => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', (status) => {
+      if (status === 0) resolve(stdout);
+      else reject(new Error(stderr || `Installed CLI exited with ${status}`));
+    });
+    child.stdin.end(options.input);
+  });
 }
 
 try {
@@ -34,6 +60,61 @@ try {
   const entry = join(installed, metadata.bin.openyapi);
   assert.equal(execute(process.execPath, [entry, '--version'], staging), `${metadata.version}\n`);
   assert.equal(JSON.parse(execute(process.execPath, [entry, 'info'], staging)).stage, 'scaffold');
+  const configHome = join(staging, 'config');
+  const cleanEnvironment = {
+    XDG_CONFIG_HOME: configHome,
+    OPENYAPI_BASE_URL: '',
+    OPENYAPI_PROFILE: '',
+    OPENYAPI_PROJECT_ID: '',
+    OPENYAPI_TOKEN: '',
+  };
+  execute(process.execPath, [
+    entry,
+    'config',
+    'set',
+    'packaged',
+    '--base-url',
+    'http://127.0.0.1',
+    '--project-id',
+    '41',
+  ], staging, { env: cleanEnvironment });
+  execute(process.execPath, [entry, 'config', 'token', 'set', 'packaged', '--stdin'], staging, {
+    env: cleanEnvironment,
+    input: 'package-secret\n',
+  });
+  const shown = execute(process.execPath, [entry, 'config', 'show', 'packaged'], staging, {
+    env: cleanEnvironment,
+  });
+  assert.equal(JSON.parse(shown).token, 'configured');
+  assert.doesNotMatch(shown, /package-secret/);
+
+  const fixture = createServer((request, response) => {
+    const url = new URL(request.url, 'http://fixture.invalid');
+    assert.equal(request.method, 'GET');
+    assert.equal(url.pathname, '/api/project/get');
+    assert.equal(url.searchParams.get('id'), '41');
+    assert.equal(url.searchParams.get('token'), 'package-secret');
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ errcode: 0, data: { _id: 41, name: 'Packaged CLI' } }));
+  });
+  await new Promise((resolve) => fixture.listen(0, '127.0.0.1', resolve));
+  try {
+    const address = fixture.address();
+    assert.ok(address && typeof address === 'object');
+    const queried = await executeAsync(process.execPath, [
+      entry,
+      'project',
+      'get',
+      '--profile',
+      'packaged',
+      '--base-url',
+      `http://127.0.0.1:${address.port}`,
+    ], staging, { env: cleanEnvironment });
+    assert.deepEqual(JSON.parse(queried), { data: { _id: 41, name: 'Packaged CLI' } });
+    assert.doesNotMatch(queried, /package-secret/);
+  } finally {
+    await new Promise((resolve, reject) => fixture.close((error) => error ? reject(error) : resolve()));
+  }
   if (process.platform !== 'win32') {
     const bin = join(dirname(installed), '.bin', 'openyapi');
     assert.equal(execute(bin, ['--version'], staging), `${metadata.version}\n`);
