@@ -66,7 +66,7 @@ export async function run(
     .description('Show local CLI metadata; does not connect to YApi.')
     .action((_options, command) => {
       writeResult(
-        { name: 'openyapi-cli', version, stage: 'scaffold' },
+        { name: 'openyapi-cli', version, stage: 'sprint1' },
         outputFormat(command),
         streams.stdout,
       );
@@ -158,7 +158,7 @@ function configureConfigCommands(program: Command, streams: OutputStreams): void
 
 function configureQueryCommands(program: Command, streams: OutputStreams): void {
   const project = program.command('project').description('Query YApi projects.');
-  withRemoteOptions(project.command('get').description('Get the configured project.'), true)
+  withRemoteOptions(project.command('get').description('Get the configured project.'))
     .action(async (_options: unknown, command: Command) => {
       const { queries, format } = queryContext(command, true);
       const data = await queries.project();
@@ -166,7 +166,7 @@ function configureQueryCommands(program: Command, streams: OutputStreams): void 
     });
 
   const category = program.command('category').description('Query YApi categories.');
-  withRemoteOptions(category.command('list').description('List project categories.'), true)
+  withRemoteOptions(category.command('list').description('List project categories.'))
     .action(async (_options, command) => {
       const { queries, format } = queryContext(command, true);
       const data = await queries.categories();
@@ -177,14 +177,13 @@ function configureQueryCommands(program: Command, streams: OutputStreams): void 
   withRemoteOptions(
     interfaceCommand.command('get').description('Get an interface.')
       .requiredOption('--id <id>', 'interface ID', positiveIntegerArgument('id')),
-    false,
   ).action(async (options: { id: number }, command) => {
     const { queries, format } = queryContext(command, false);
     const data = await queries.interface(options.id);
     writeResult({ data }, format, streams.stdout, interfaceTable([data]));
   });
 
-  withRemoteOptions(interfaceCommand.command('list').description('List interfaces.'), false)
+  withRemoteOptions(interfaceCommand.command('list').description('List interfaces.'))
     .option('--category-id <id>', 'category ID', positiveIntegerArgument('category-id'))
     .option('--page <page>', 'page number', positiveIntegerArgument('page'))
     .option('--limit <limit>', 'page size', positiveIntegerArgument('limit'))
@@ -202,7 +201,7 @@ function configureQueryCommands(program: Command, streams: OutputStreams): void 
       writeResult(result, format, streams.stdout, interfaceTable(result.data));
     });
 
-  withRemoteOptions(interfaceCommand.command('tree').description('List categories and interfaces as a tree.'), true)
+  withRemoteOptions(interfaceCommand.command('tree').description('List categories and interfaces as a tree.'))
     .action(async (_options, command) => {
       const { queries, format } = queryContext(command, true);
       const data = await queries.tree();
@@ -210,17 +209,12 @@ function configureQueryCommands(program: Command, streams: OutputStreams): void 
     });
 }
 
-function withRemoteOptions(command: Command, includeProjectId: boolean): Command {
-  command
+function withRemoteOptions(command: Command): Command {
+  return command
     .option('--profile <name>', 'profile name')
     .option('--base-url <url>', 'YApi base URL', baseUrlArgument)
+    .option('--project-id <id>', 'project ID and optional identity preflight', positiveIntegerArgument('project-id'))
     .option('--timeout-ms <ms>', 'per-request timeout in milliseconds', positiveIntegerArgument('timeout-ms'));
-  if (includeProjectId) {
-    command.option('--project-id <id>', 'YApi project ID', positiveIntegerArgument('project-id'));
-  } else {
-    command.option('--project-id <id>', 'optional project identity preflight', positiveIntegerArgument('project-id'));
-  }
-  return command;
 }
 
 function queryContext(command: Command, requireProjectId: boolean): {

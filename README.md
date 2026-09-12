@@ -33,13 +33,7 @@ node dist/main.js config token unset default
 node dist/main.js config delete default
 ```
 
-`show`、`list` 和 token 操作只显示 `configured`/`missing`，不会显示 token。`config set` 更新连接信息时保留已有 token。配置文件位置：
-
-- Linux：`$XDG_CONFIG_HOME/openyapi/profiles.json`，未设置时为 `~/.config/openyapi/profiles.json`
-- macOS：`$XDG_CONFIG_HOME/openyapi/profiles.json`，未设置时为 `~/Library/Application Support/openyapi/profiles.json`
-- Windows：`%XDG_CONFIG_HOME%\openyapi\profiles.json`，未设置时使用 `%APPDATA%\openyapi\profiles.json`
-
-Unix 下配置目录权限为 `0700`，文件为 `0600`。CI 可不写文件，直接设置：
+`show`、`list` 和 token 操作不会显示 token，`config set` 更新连接信息时会保留已有 token。各操作系统的配置路径、Unix 权限和完整优先级以 [配置与认证约定](docs/design.md#配置与认证迭代-1-实现) 为准。CI 可不写文件，直接设置：
 
 ```sh
 export OPENYAPI_BASE_URL=https://yapi.example.com
@@ -48,7 +42,7 @@ export OPENYAPI_TOKEN=...
 node dist/main.js project get
 ```
 
-选择顺序为 `--profile` > `OPENYAPI_PROFILE` > `default`。非敏感值为命令参数 > 环境变量 > profile；token 为 `OPENYAPI_TOKEN` > profile。没有持久 active profile，也没有 token 命令行参数。
+CLI 没有持久 active profile，也不提供 token 命令行参数。
 
 ## 查询命令
 
@@ -63,9 +57,7 @@ node dist/main.js interface tree [--profile NAME]
 
 各查询也接受 `--base-url`、`--project-id` 和 `--timeout-ms`；默认每个请求超时 30000ms。只有 `interface get` 和带 `--category-id` 的 `interface list` 可在不配置 project ID 时执行。配置了 project ID 时，客户端先调用 `project get` 核对 token 实际对应的项目；不匹配则不发送目标查询。
 
-默认输出为单个 JSON 值：业务结果放在 `data`，列表的 `pagination` 将服务端 `count`/`total` 映射为 `totalItems`/`totalPages`。`--format table` 输出项目、分类和接口摘要，完整 schema 始终保留在 JSON 中。
-
-单页默认 `page=1`、`limit=10`。`--all` 与 `--page` 互斥，从第 1 页使用数值 limit 逐页读取；重复 ID、总数变化、提前空页或数量不一致会整体失败，不输出部分结果。并发写入或服务端排序不稳定时不提供快照一致性保证。
+默认输出为单个 JSON 值；`--format table` 输出摘要，完整 schema 保留在 JSON 中。响应格式见 [输出约定](docs/design.md#输出与退出码)，分页默认值、`--all` 完整性检查和并发限制见 [查询约定](docs/design.md#配置与认证迭代-1-实现)。
 
 ## 错误与退出码
 
@@ -75,7 +67,7 @@ node dist/main.js interface tree [--profile NAME]
 {"error":{"code":"CONFIG_ERROR","message":"Missing token configuration."}}
 ```
 
-稳定错误码包括 `USAGE_ERROR`、`CONFIG_ERROR`、`PROJECT_MISMATCH`、`NETWORK_ERROR`、`TIMEOUT_ERROR`、`HTTP_ERROR`、`YAPI_ERROR`、`RESPONSE_ERROR` 和 `INTERNAL_ERROR`。成功退出 0，参数/用法错误退出 2，其他执行失败退出 1。客户端拒绝重定向、不自动重试，并从诊断中脱敏 token。
+错误码、退出码和传输失败策略以 [输出与退出码](docs/design.md#输出与退出码) 为权威说明；所有失败均保持 stdout 为空，且诊断优先脱敏 token。
 
 ## 开发与验收
 

@@ -48,7 +48,7 @@ export async function get(
     if (!Object.hasOwn(body, 'data')) {
       throw new CliError('RESPONSE_ERROR', 'YApi response is missing data.');
     }
-    return body.data;
+    return redactValue(body.data, config.token);
   } catch (error) {
     if (error instanceof CliError) throw error;
     if (isAbortError(error)) {
@@ -88,4 +88,15 @@ function redact(message: string, secret: string): string {
   return [secret, encodeURIComponent(secret)]
     .filter((value, index, values) => value && values.indexOf(value) === index)
     .reduce((redacted, value) => redacted.split(value).join('[REDACTED]'), message);
+}
+
+function redactValue(value: unknown, secret: string): unknown {
+  if (typeof value === 'string') return redact(value, secret);
+  if (Array.isArray(value)) return value.map((item) => redactValue(item, secret));
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [
+    redact(key, secret),
+    redactValue(item, secret),
+  ]));
 }

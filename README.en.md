@@ -33,13 +33,7 @@ node dist/main.js config token unset default
 node dist/main.js config delete default
 ```
 
-Profile and token commands report only `configured` or `missing`; they never print the token. Updating connection settings with `config set` preserves a stored token. Profile locations are:
-
-- Linux: `$XDG_CONFIG_HOME/openyapi/profiles.json`, or `~/.config/openyapi/profiles.json`
-- macOS: `$XDG_CONFIG_HOME/openyapi/profiles.json`, or `~/Library/Application Support/openyapi/profiles.json`
-- Windows: `%XDG_CONFIG_HOME%\openyapi\profiles.json`, or `%APPDATA%\openyapi\profiles.json`
-
-On Unix, the directory uses mode `0700` and the file `0600`. CI can use only `OPENYAPI_BASE_URL`, `OPENYAPI_PROJECT_ID`, and `OPENYAPI_TOKEN`. Profile selection is `--profile` > `OPENYAPI_PROFILE` > `default`. Non-secret values resolve command option > environment > profile; the token resolves `OPENYAPI_TOKEN` > profile. There is no persistent active profile and no token command-line option.
+Profile and token commands never print the token, and `config set` preserves a stored token. The authoritative [configuration contract](docs/design.md#配置与认证迭代-1-实现) documents OS-specific paths, Unix permissions, and precedence. CI can use `OPENYAPI_BASE_URL`, `OPENYAPI_PROJECT_ID`, and `OPENYAPI_TOKEN` without a profile file. There is no persistent active profile and no token command-line option.
 
 ## Query commands
 
@@ -54,13 +48,11 @@ node dist/main.js interface tree [--profile NAME]
 
 Queries also accept `--base-url`, `--project-id`, and `--timeout-ms`; each request defaults to 30000ms. Only `interface get` and category-filtered `interface list` can run without a project ID. When a project ID is configured, the client first calls `project get` to verify the token's project identity and stops before the target query on a mismatch.
 
-The default output is one JSON value. Business results are under `data`; list `pagination` maps server `count`/`total` to `totalItems`/`totalPages`. `--format table` gives concise project, category, and interface summaries, while JSON retains full schemas.
-
-Single-page defaults are `page=1` and `limit=10`. `--all` conflicts with `--page` and fetches numeric pages from page 1. Duplicate IDs, changing totals, early empty pages, or inconsistent final counts fail as a whole without partial stdout. Concurrent server changes and unstable ordering have no snapshot-consistency guarantee.
+The default output is one JSON value; `--format table` gives concise summaries, while JSON retains full schemas. See the authoritative [output contract](docs/design.md#输出与退出码) and [query/pagination contract](docs/design.md#配置与认证迭代-1-实现) for response shapes, defaults, full-read validation, and concurrency limits.
 
 ## Errors and exit codes
 
-Failures leave stdout empty and write structured JSON to stderr. Stable codes are `USAGE_ERROR`, `CONFIG_ERROR`, `PROJECT_MISMATCH`, `NETWORK_ERROR`, `TIMEOUT_ERROR`, `HTTP_ERROR`, `YAPI_ERROR`, `RESPONSE_ERROR`, and `INTERNAL_ERROR`. Success exits 0, usage errors 2, and execution failures 1. Requests reject redirects, are not retried, and redact tokens from diagnostics.
+Failures leave stdout empty and write structured JSON to stderr. The authoritative [error contract](docs/design.md#输出与退出码) defines stable codes, exit statuses, redirects, retries, and credential redaction.
 
 ## Development and validation
 

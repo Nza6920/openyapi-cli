@@ -36,7 +36,7 @@ export class YApiQueries {
 
   async project(): Promise<unknown> {
     const projectId = requiredProjectId(this.config);
-    const project = await get(this.config, '/api/project/get', { id: projectId }, this.timeoutMs);
+    const project = await get(this.config, '/api/project/get', {}, this.timeoutMs);
     assertProjectIdentity(project, projectId);
     return project;
   }
@@ -101,6 +101,7 @@ export class YApiQueries {
         { ...endpoint.params, page, limit },
         this.timeoutMs,
       ));
+      validatePage(current, page, limit);
       if (expectedCount === undefined) {
         expectedCount = current.count;
         expectedPages = current.total;
@@ -163,7 +164,7 @@ export class YApiQueries {
 
   private async preflightProject(): Promise<void> {
     const projectId = requiredProjectId(this.config);
-    const project = await get(this.config, '/api/project/get', { id: projectId }, this.timeoutMs);
+    const project = await get(this.config, '/api/project/get', {}, this.timeoutMs);
     assertProjectIdentity(project, projectId);
   }
 }
@@ -206,14 +207,13 @@ function validatePage(data: PaginationData, page: number, limit: number): void {
   if (data.total !== Math.ceil(data.count / limit)) {
     throw protocolError('Pagination total does not match count and limit.');
   }
-  if (data.list.length > limit) {
-    throw protocolError('Pagination page contains more items than the requested limit.');
-  }
-  if (page > data.total && data.list.length > 0) {
-    throw protocolError('Pagination returned items beyond the final page.');
-  }
-  if (data.count > 0 && page <= data.total && data.list.length === 0) {
-    throw protocolError('Pagination returned an empty page before the final page.');
+  const expectedItems = page > data.total
+    ? 0
+    : page < data.total
+      ? limit
+      : data.count - ((page - 1) * limit);
+  if (data.list.length !== expectedItems) {
+    throw protocolError('Pagination page size is inconsistent with count, total, page, and limit.');
   }
 }
 

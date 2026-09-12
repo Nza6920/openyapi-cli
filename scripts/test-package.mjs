@@ -13,7 +13,13 @@ assert.ok(npmCli, 'Run this check with npm run test:package');
 const metadata = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
 
 function execute(command, args, cwd, options = {}) {
-  const result = spawnSync(command, args, {
+  const result = executeResult(command, args, cwd, options);
+  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
+  return result.stdout;
+}
+
+function executeResult(command, args, cwd, options = {}) {
+  return spawnSync(command, args, {
     cwd,
     encoding: 'utf8',
     env: {
@@ -23,8 +29,6 @@ function execute(command, args, cwd, options = {}) {
     },
     input: options.input,
   });
-  assert.equal(result.status, 0, result.error?.message ?? result.stderr);
-  return result.stdout;
 }
 
 function executeAsync(command, args, cwd, options = {}) {
@@ -59,7 +63,7 @@ try {
   const installed = join(staging, 'node_modules', 'openyapi-cli');
   const entry = join(installed, metadata.bin.openyapi);
   assert.equal(execute(process.execPath, [entry, '--version'], staging), `${metadata.version}\n`);
-  assert.equal(JSON.parse(execute(process.execPath, [entry, 'info'], staging)).stage, 'scaffold');
+  assert.equal(JSON.parse(execute(process.execPath, [entry, 'info'], staging)).stage, 'sprint1');
   const configHome = join(staging, 'config');
   const cleanEnvironment = {
     XDG_CONFIG_HOME: configHome,
@@ -92,7 +96,7 @@ try {
     const url = new URL(request.url, 'http://fixture.invalid');
     assert.equal(request.method, 'GET');
     assert.equal(url.pathname, '/api/project/get');
-    assert.equal(url.searchParams.get('id'), '41');
+    assert.equal(url.searchParams.has('id'), false);
     assert.equal(url.searchParams.get('token'), 'package-secret');
     response.writeHead(200, { 'content-type': 'application/json' });
     response.end(JSON.stringify({ errcode: 0, data: { _id: 41, name: 'Packaged CLI' } }));
@@ -112,9 +116,34 @@ try {
     ], staging, { env: cleanEnvironment });
     assert.deepEqual(JSON.parse(queried), { data: { _id: 41, name: 'Packaged CLI' } });
     assert.doesNotMatch(queried, /package-secret/);
+    const table = await executeAsync(process.execPath, [
+      entry,
+      'project',
+      'get',
+      '--profile',
+      'packaged',
+      '--base-url',
+      `http://127.0.0.1:${address.port}`,
+      '--format',
+      'table',
+    ], staging, { env: cleanEnvironment });
+    assert.match(table, /ID\s+NAME\s+BASE PATH\s+TYPE/);
+    assert.match(table, /41\s+Packaged CLI/);
   } finally {
     await new Promise((resolve, reject) => fixture.close((error) => error ? reject(error) : resolve()));
   }
+  const usageFailure = executeResult(process.execPath, [entry, 'project', 'get', '--project-id', '0'], staging, {
+    env: cleanEnvironment,
+  });
+  assert.equal(usageFailure.status, 2);
+  assert.equal(usageFailure.stdout, '');
+  assert.equal(JSON.parse(usageFailure.stderr).error.code, 'USAGE_ERROR');
+  const executionFailure = executeResult(process.execPath, [entry, 'config', 'show', 'missing'], staging, {
+    env: cleanEnvironment,
+  });
+  assert.equal(executionFailure.status, 1);
+  assert.equal(executionFailure.stdout, '');
+  assert.equal(JSON.parse(executionFailure.stderr).error.code, 'CONFIG_ERROR');
   if (process.platform !== 'win32') {
     const bin = join(dirname(installed), '.bin', 'openyapi');
     assert.equal(execute(bin, ['--version'], staging), `${metadata.version}\n`);

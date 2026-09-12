@@ -62,7 +62,11 @@ function json(response, body, status = 200, headers = {}) {
 test('project get uses environment-only token authentication and preserves project data', async () => {
   const configHome = await mkdtemp(join(tmpdir(), 'openyapi-config-'));
   const server = await fixture(({ response }) => {
-    json(response, { errcode: 0, errmsg: 'success', data: { _id: 41, name: 'Docs', private: true } });
+    json(response, {
+      errcode: 0,
+      errmsg: 'success',
+      data: { _id: 41, name: 'Docs', private: true, echoed: 'token=secret-token' },
+    });
   });
   try {
     const result = await invoke(['project', 'get'], {
@@ -76,12 +80,12 @@ test('project get uses environment-only token authentication and preserves proje
     assert.equal(result.status, 0);
     assert.equal(result.stderr, '');
     assert.deepEqual(JSON.parse(result.stdout), {
-      data: { _id: 41, name: 'Docs', private: true },
+      data: { _id: 41, name: 'Docs', private: true, echoed: 'token=[REDACTED]' },
     });
     assert.deepEqual(server.requests, [{
       method: 'GET',
       pathname: '/api/project/get',
-      query: { token: 'secret-token', id: '41' },
+      query: { token: 'secret-token' },
     }]);
     assert.doesNotMatch(result.stdout + result.stderr, /secret-token/);
   } finally {
@@ -245,8 +249,9 @@ test('profile and token lifecycle is isolated, permission-restricted, and redact
 test('explicit profile and connection options override environment selection and profile settings', async () => {
   const configHome = await mkdtemp(join(tmpdir(), 'openyapi-config-'));
   const server = await fixture(({ response, url }) => {
-    const id = Number(url.searchParams.get('id'));
-    json(response, { errcode: 0, data: { _id: id, tokenKind: url.searchParams.get('token') } });
+    const token = url.searchParams.get('token');
+    const id = token === 'staging-token' ? 7 : 9;
+    json(response, { errcode: 0, data: { _id: id, tokenKind: token } });
   });
   const env = isolatedEnvironment(configHome);
   try {
@@ -259,7 +264,7 @@ test('explicit profile and connection options override environment selection and
       env: { ...env, OPENYAPI_PROFILE: 'staging' },
     });
     assert.deepEqual(JSON.parse(selectedByEnvironment.stdout).data, {
-      _id: 7, tokenKind: 'staging-token',
+      _id: 7, tokenKind: '[REDACTED]',
     });
 
     const explicit = await invoke([
@@ -273,7 +278,7 @@ test('explicit profile and connection options override environment selection and
       },
     });
     assert.deepEqual(JSON.parse(explicit.stdout).data, {
-      _id: 9, tokenKind: 'environment-token',
+      _id: 9, tokenKind: '[REDACTED]',
     });
   } finally {
     await server.close();
@@ -328,10 +333,10 @@ test('category, interface detail, and tree commands map requests and render summ
     assert.match(tree.stdout, /Users\s+8\s+POST\s+\/users\s+Create user\s+done/);
 
     assert.deepEqual(server.requests.map(({ method, pathname, query }) => ({ method, pathname, query })), [
-      { method: 'GET', pathname: '/api/project/get', query: { token: 'secret-token', id: '41' } },
+      { method: 'GET', pathname: '/api/project/get', query: { token: 'secret-token' } },
       { method: 'GET', pathname: '/api/interface/getCatMenu', query: { token: 'secret-token', project_id: '41' } },
       { method: 'GET', pathname: '/api/interface/get', query: { token: 'secret-token', id: '8' } },
-      { method: 'GET', pathname: '/api/project/get', query: { token: 'secret-token', id: '41' } },
+      { method: 'GET', pathname: '/api/project/get', query: { token: 'secret-token' } },
       { method: 'GET', pathname: '/api/interface/list_menu', query: { token: 'secret-token', project_id: '41' } },
     ]);
   } finally {
@@ -413,7 +418,7 @@ test('interface list maps project and category pagination with stable JSON and t
     assert.equal(categoryResult.status, 0);
     assert.match(categoryResult.stdout, /ID\s+METHOD\s+PATH\s+TITLE\s+STATUS/);
     assert.deepEqual(server.requests.map(({ pathname, query }) => ({ pathname, query })), [
-      { pathname: '/api/project/get', query: { token: 'secret-token', id: '41' } },
+      { pathname: '/api/project/get', query: { token: 'secret-token' } },
       { pathname: '/api/interface/list', query: { token: 'secret-token', project_id: '41', page: '1', limit: '10' } },
       { pathname: '/api/interface/list_cat', query: { token: 'secret-token', catid: '3', page: '4', limit: '5' } },
     ]);
@@ -536,6 +541,17 @@ test('interface list --all rejects pagination anomalies without partial output',
     {
       name: 'invalid response shape',
       pages: [{ count: '2', total: 1, list: [{ _id: 1 }, { _id: 2 }] }],
+    },
+    {
+      name: 'oversized first page',
+      pages: [{ count: 3, total: 2, list: [{ _id: 1 }, { _id: 2 }, { _id: 3 }] }],
+    },
+    {
+      name: 'short non-final page',
+      pages: [
+        { count: 3, total: 2, list: [{ _id: 1 }] },
+        { count: 3, total: 2, list: [{ _id: 2 }, { _id: 3 }] },
+      ],
     },
   ];
 

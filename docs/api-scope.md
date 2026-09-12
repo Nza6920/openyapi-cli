@@ -34,9 +34,8 @@
 
 - 官方源码基线固定为 tag `v1.12.0`、commit `f856193ded851326a9aea19ff28d1c20c653bbab`；该 tag 的 `package.json` version 为 1.11.0。
 - 所有请求为 GET，项目 token 放 query；拒绝重定向，每请求默认超时 30000ms，不自动重试。
-- `project get` 发送 `id`；`category list` 和 `interface tree` 发送 `project_id`；`interface get` 发送 `id`；两个列表分别发送 `project_id` 或 `catid`，并发送数值 `page`、`limit`。
-- 成功 JSON 去掉 YApi 的 `errcode`/`errmsg` 信封，业务结果放 `data`。分页另带 `pagination`，将 `count`/`total` 映射为 `totalItems`/`totalPages`。
-- `--all` 与显式 `--page` 互斥；全量读取只对静态数据集提供完整性检测，不提供并发快照保证。
+- `project get` 只发送 token，由固定版本的 token 中间件解析实际 `project_id`；客户端再与本地期望 ID 比较。`category list` 和 `interface tree` 发送 `project_id`；`interface get` 发送 `id`；两个列表分别发送 `project_id` 或 `catid`，以及数值 `page`、`limit`。
+- 输出、分页、重定向、重试和错误的权威行为约定见 [design.md](design.md#输出与退出码) 与 [design.md](design.md#配置与认证迭代-1-实现)，此处只维护端点映射及服务端兼容风险。
 - 私有项目的 `getCatMenu` 在固定版本可能要求 edit 权限；服务端拒绝按 `YAPI_ERROR` 原样分类，不提升或绕过权限。
 
 删除接口、分类修改/删除、项目创建/管理、服务端部署、网页登录、自动化测试管理和未列入此页的导出能力不在首版范围。也不移植服务端源代码或复用旧部署 CLI。

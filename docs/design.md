@@ -49,6 +49,7 @@ CLI 负责参数和呈现；配置模块解析 profile 和凭据；客户端只�
 
 - 默认 `--format json`，成功时 stdout 输出单个 JSON 值，末尾换行。
 - `--format table` 面向人工阅读；项目、分类、接口详情/列表和树使用固定摘要列，完整业务字段保留在 JSON 中。
+- 成功业务数据在呈现前递归替换当前 token（含 URL 编码形式）；凭据脱敏优先于原始响应保真。
 - `--help`、`--version` 为文本例外；无参数显示帮助。
 - 错误写入 stderr，结构为 `{"error":{"code":"USAGE_ERROR","message":"..."}}`；失败时不混入成功数据。
 - 退出码：0 成功，2 参数/用法错误，1 执行失败，不为每种错误扩展进程退出码。
@@ -66,9 +67,9 @@ profile 保存在操作系统的用户配置目录；`XDG_CONFIG_HOME` 显式设
 
 YApi 文档使用项目 token：GET 放 query、POST 放 body；不默认转换为 Bearer header。认证实际效果须对选定服务端版本做集成验收。
 
-只读查询在提供 project ID 时先执行一次认证的 `/api/project/get` 身份预检；项目查询本身复用该请求。预检返回 `_id` 不匹配时使用 `PROJECT_MISMATCH` 停止，不发送目标查询。`interface get` 和按分类列举只要求各自 ID、base URL 与 token；未提供 project ID 时不增加身份预检。
+只读查询在提供 project ID 时先执行一次认证的 `/api/project/get` 身份预检；该请求只携带 token，不发送期望 ID，由服务端 token 中间件解析实际项目，再在本地比较返回 `_id`。项目查询本身复用该请求。ID 不匹配时使用 `PROJECT_MISMATCH` 停止，不发送目标查询。`interface get` 和按分类列举只要求各自 ID、base URL 与 token；未提供 project ID 时不增加身份预检。
 
-分页默认 `page=1`、`limit=10`。显式 `--all` 从第一页按数字 limit 遍历，拒绝重复 ID、总数/总页数变化、提前空页和最终数量不一致；结果完整成功前不写 stdout。该检查证明静态数据集的一致读取，不承诺并发修改或不稳定排序下的快照语义。
+分页默认 `page=1`、`limit=10`。每页条数必须与 count、total、page 和 limit 一致；显式 `--all` 从第一页按数字 limit 遍历，拒绝重复 ID、总数/总页数变化、提前空页和最终数量不一致；结果完整成功前不写 stdout。该检查证明静态数据集的一致读取，不承诺并发修改或不稳定排序下的快照语义。
 
 ## 写入约定（迭代 2 实现）
 
