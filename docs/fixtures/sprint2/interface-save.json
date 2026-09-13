@@ -1,0 +1,8 @@
+{
+  "title": "Sprint 2 save",
+  "path": "/openyapi-cli/sprint2/save",
+  "method": "PUT",
+  "catid": 1,
+  "res_body_type": "json",
+  "res_body": "{\"saved\":true}"
+}

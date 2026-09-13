@@ -4,7 +4,7 @@
 
 面向开发者、AI Agent 和 CI 的 YApi OpenAPI 命令行客户端。
 
-Sprint 1 的配置、认证和六个只读查询端点已实现并通过本地 HTTP fixture 测试；真实 YApi 实例兼容验收和远程 CI 尚未完成，因此当前仍是未发布的 `0.1.0-alpha.0`。写入与导入属于后续迭代。
+Sprint 2 的配置、六个只读端点和五个写入/导入端点已实现，并通过本地 HTTP fixture 和真实 tarball 隔离安装测试。用户已确认 Sprint 1 真实实例验收通过；Sprint 2 真实实例、Windows 和远程 CI 结果仍待单独记录。当前仍是未发布的 `0.1.0-alpha.0`。
 
 ## 本地开始
 
@@ -69,6 +69,44 @@ node dist/main.js interface tree [--profile NAME]
 
 错误码、退出码和传输失败策略以 [输出与退出码](docs/design.md#输出与退出码) 为权威说明；所有失败均保持 stdout 为空，且诊断优先脱敏 token。
 
+## 写入与导入
+
+JSON 写入命令必须在 `--file` 和 `--stdin` 中二选一；导入则在 `--file`、`--stdin` 和 `--url` 中三选一。文件和 stdin 支持 UTF-8（有或无 BOM）以及带 BOM 的 UTF-16LE。
+
+```sh
+openyapi category create --file "./inputs/中文 category.json"
+openyapi interface create --file interface.json
+openyapi interface save --stdin < interface.json
+openyapi interface update --file update.json
+openyapi import --file openapi.json --type swagger --merge normal
+openyapi import --url https://internal.example/openapi.json --type swagger --merge good
+openyapi import --file openapi.json --type swagger --merge merge --allow-overwrite
+```
+
+`category create`要求 `name`；`interface create/save` 要求 `title`、`path`、`method`、`catid` 且拒绝 `id`；`interface update` 要求 `id` 并只更新所提供字段。顶层 `token` 始终被拒绝，`project_id` 必须与配置相符；导入文档内的同名业务字段不是认证覆盖。所有写入先核对项目，update 还会核对目标接口归属。POST 不自动重试；超时或断连后结果未知。
+
+`--type` 是服务端插件名（示例为 `swagger`），支持情况由目标 YApi 实例决定。`merge` 模式不表示删除输入中未出现的全部接口，也不承诺完整 OpenAPI 3 兼容。
+
+### PowerShell 编码
+
+Windows PowerShell 5.1 在把文本传给 native 命令前需显式设置 UTF-8；设置只影响当前进程，不修改机器执行策略：
+
+```powershell
+$utf8 = New-Object System.Text.UTF8Encoding($false)
+[Console]::OutputEncoding = $utf8
+$OutputEncoding = $utf8
+Get-Content -Raw -Encoding UTF8 '.\inputs\中文 api.json' | openyapi interface save --stdin
+```
+
+PowerShell 7：
+
+```powershell
+$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
+Get-Content -Raw -Encoding utf8 '.\inputs\中文 api.json' | openyapi interface save --stdin
+```
+
+如果 shell 在传给 CLI 前已丢失字符，CLI 无法恢复。更完整的验收状态和固定输入见 [Sprint 2 验收记录](docs/acceptance/sprint2.md)。
+
 ## 开发与验收
 
 ```sh
@@ -76,9 +114,9 @@ npm run check
 npm run test:package
 ```
 
-`check` 执行类型检查、构建和编译后 CLI 黑盒测试。`test:package` 生成真实 tarball，在临时目录仅安装运行时依赖并验证入口与包内容，需要访问 npm registry。
+`check` 执行类型检查、构建和编译后 CLI 黑盒测试。`test:package` 生成真实 tarball，在临时目录仅安装运行时依赖，并通过安装入口验证全部五个写命令。
 
-兼容契约固定为官方 YMFE/yapi tag `v1.12.0`、commit `f856193ded851326a9aea19ff28d1c20c653bbab`（该 tag 的 package version 仍为 1.11.0）。本地 fixture 不能替代真实实例验收；真实实例版本、六个 GET 结果和脱敏证据仍待提供。项目尚未发布到 npm，也不会在 Sprint 1 执行发布。
+兼容契约固定为官方 YMFE/yapi tag `v1.12.0`、commit `f856193ded851326a9aea19ff28d1c20c653bbab`（该 tag 的 package version 仍为 1.11.0）。用户已确认 Sprint 1 真实实例验收通过，但仓库中没有其版本和脱敏证据；Sprint 2 真实写入验收、Windows 运行结果和远程 CI 仍待完成。项目尚未发布到 npm。
 
 ## 范围与计划
 

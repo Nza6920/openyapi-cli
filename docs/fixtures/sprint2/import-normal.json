@@ -1,0 +1,6 @@
+{
+  "swagger": "2.0",
+  "info": { "title": "openyapi-cli normal", "version": "1.0.0" },
+  "basePath": "/openyapi-cli/sprint2/normal",
+  "paths": { "/items": { "get": { "responses": { "200": { "description": "ok" } } } } }
+}

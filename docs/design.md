@@ -1,6 +1,6 @@
 # 技术选型与行为约定
 
-状态：2026-09-12 经用户确认；迭代 1 已实现并完成本地 fixture 验收，真实实例兼容验收仍待外部条件。
+状态：2026-09-13；迭代 2 的全部端点已实现并完成本地 fixture 与隔离安装包验证。用户已确认迭代 1 真实实例验收通过；迭代 2 真实实例、Windows 执行与远程 CI 结果待单独记录。
 
 ## 已确认的产品边界
 
@@ -8,7 +8,7 @@
 - 同时服务终端开发者、AI Agent 和 CI，默认非交互执行。
 - 官方 YMFE/yapi 为基线，再用实际部署实例验收，不承诺各类 fork。
 - 单 npm 包 `openyapi-cli`，可执行命令 `openyapi`，MIT 许可证。
-- 迭代 1 实现六个只读端点；写入、导入和 npm 发布不在本次范围。
+- 迭代 1 实现六个只读端点；迭代 2 实现五个写入/导入端点。npm 发布仍不在本迭代范围。
 
 ## 技术选型
 
@@ -33,17 +33,20 @@
 src/main.ts          进程入口与包版本读取
 src/cli.ts           命令解析、执行与退出码
 src/config.ts        profile 存储与配置优先级
-src/client.ts        GET 传输及 YApi 响应信封校验
+src/client.ts        GET/POST 传输及 YApi 响应信封校验
+src/input.ts         JSON 文件/stdin 的字节级编码解码与语法校验
 src/queries.ts       端点映射、身份预检与分页协议
+src/writes.ts        写入字段契约、归属预检与五个 POST 映射
 src/errors.ts        稳定错误分类
 src/output.ts        结果格式化
 test/cli.test.mjs    编译后 CLI 的黑盒测试
 test/sprint1.test.mjs 编译后 CLI + 本地 HTTP fixture 验收
+test/sprint2.test.mjs 编译后写入 CLI + 本地 HTTP fixture 验收
 scripts/            清理和安装包验收
 docs/               设计、API 范围、迭代计划
 ```
 
-CLI 负责参数和呈现；配置模块解析 profile 和凭据；客户端只封装 URL、认证、传输与响应信封；查询模块管理端点语义、身份预检和分页不变量。首版不导出公共 SDK，内部模块不构成 npm API 承诺。
+CLI 负责参数、本地输入顺序和呈现；配置模块解析 profile 和凭据；客户端只封装 URL、认证、传输与响应信封；查询和写入模块分别管理各自的端点语义与不变量。首版不导出公共 SDK，内部模块不构成 npm API 承诺。
 
 ## 输出与退出码
 
@@ -73,13 +76,15 @@ YApi 文档使用项目 token：GET 放 query、POST 放 body；不默认转换�
 
 ## 写入约定（迭代 2 实现）
 
-- 显式执行新增、更新、导入命令即写入，不弹确认。
-- 完全覆盖导入必须同时提供 `--merge merge --allow-overwrite`，缺少标志时在发起请求前失败。
-- 不自动重试写请求；超时后提示结果未知，不将网络失败解释为未写入。
-- 输入 JSON 支持文件或 stdin；先做 JSON 语法与必要字段校验。
-- 同时检查 HTTP 状态、JSON 响应结构和 YApi errcode。
-- 不增加自动补偿、回滚、历史重放或 exactly-once 承诺。
-- 接口写入/导入的集成验收包含后读核对；是否产品化为单独参数在对应迭代设计时确定，不把 HTTP 成功等同于持久化验收。
+- 显式执行新增、更新、导入命令即写入，不弹确认。`category/interface` 使用文件或 stdin 二选一；import 使用文件、stdin 或服务端可访问 URL 三选一。
+- 本地输入仅接受 UTF-8（有/无 BOM）或带 BOM 的 UTF-16LE；编码、JSON 语法、必填字段、身份字段和覆盖授权在任何 HTTP 前完成。错误不回显输入内容。
+- category 要求 `name`；interface create/save 要求 `title/path/method/catid` 并拒绝 `id`；update 要求 `id` 且允许部分业务字段。其余端点支持的顶层业务字段原样传递。
+- 所有写入强制配置项目 ID，拒绝顶层 `token`，检查输入 `project_id` 并由 CLI 注入配置的项目 ID 和 token。POST 的 token 仅在 JSON body，不在 URL。
+- 任何 POST 前都调用 project get 核对实际项目；update 再读取目标接口并核对 `project_id`。本地校验失败是零请求，身份/归属失败可有必要 GET 但是零 POST。
+- import 要求非空 `--type`，`--merge` 仅接受 `normal/good/merge` 且默认 `normal`。`merge` 必须同时提供 `--allow-overwrite`；它不代表删除输入中未出现的所有接口。本地文档序列化到外层 `json` 字段，`url` 由 YApi 服务端获取。
+- 成功统一输出 `{data,message}`，保留并脱敏服务端 `data/errmsg`；缺失成功消息时 `message` 为空字符串。save 响应可为空数组或更新前数据，import 可为 null data 加统计消息；不将响应说成写后核对。
+- 同时检查 HTTP 状态、JSON 响应结构和 YApi errcode，拒绝重定向。不自动重试 POST；写请求超时或断连后明确提示结果未知。
+- 不增加自动补偿、回滚、历史重放、自动写后 verify 或 exactly-once 承诺。真实实例验收手动执行后读核对。
 
 ## 打包与发布
 

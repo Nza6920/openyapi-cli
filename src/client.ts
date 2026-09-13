@@ -7,6 +7,11 @@ interface YApiEnvelope {
   errmsg?: unknown;
 }
 
+export interface WriteResult {
+  data: unknown;
+  message: string;
+}
+
 export async function get(
   config: ResolvedConfig,
   path: string,
@@ -55,6 +60,66 @@ export async function get(
       throw new CliError('TIMEOUT_ERROR', `YApi request timed out after ${timeoutMs} ms.`);
     }
     throw new CliError('NETWORK_ERROR', 'Unable to reach YApi.');
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export async function post(
+  config: ResolvedConfig,
+  path: string,
+  payload: Readonly<Record<string, unknown>>,
+  timeoutMs: number,
+): Promise<WriteResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(new URL(`${config.baseUrl}${path}`), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...payload, token: config.token }),
+      redirect: 'manual',
+      signal: controller.signal,
+    });
+    if (response.status >= 300 && response.status < 400) {
+      throw new CliError('HTTP_ERROR', `YApi returned an unsupported redirect (HTTP ${response.status}).`);
+    }
+    if (!response.ok) {
+      throw new CliError('HTTP_ERROR', `YApi returned HTTP ${response.status}.`);
+    }
+
+    let body: unknown;
+    try {
+      body = await response.json();
+    } catch {
+      throw new CliError('RESPONSE_ERROR', 'YApi returned invalid JSON.');
+    }
+    if (!isEnvelope(body)) {
+      throw new CliError('RESPONSE_ERROR', 'YApi returned an invalid response envelope.');
+    }
+    if (body.errcode !== 0) {
+      const message = typeof body.errmsg === 'string'
+        ? redact(body.errmsg, config.token)
+        : `YApi returned business error ${body.errcode}.`;
+      throw new CliError('YAPI_ERROR', message);
+    }
+    if (!Object.hasOwn(body, 'data')) {
+      throw new CliError('RESPONSE_ERROR', 'YApi response is missing data.');
+    }
+    return {
+      data: redactValue(body.data, config.token),
+      message: typeof body.errmsg === 'string' ? redact(body.errmsg, config.token) : '',
+    };
+  } catch (error) {
+    if (error instanceof CliError) throw error;
+    if (isAbortError(error)) {
+      throw new CliError(
+        'TIMEOUT_ERROR',
+        `YApi write request timed out after ${timeoutMs} ms; the result is unknown.`,
+      );
+    }
+    throw new CliError('NETWORK_ERROR', 'Unable to confirm the YApi write result; the result is unknown.');
   } finally {
     clearTimeout(timer);
   }

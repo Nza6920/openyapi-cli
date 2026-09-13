@@ -16,9 +16,11 @@ import {
 } from './config.js';
 import type { Profile, ResolvedConfig } from './config.js';
 import { CliError, ConfigError, UsageError } from './errors.js';
+import { readImportInput, readJsonInput } from './input.js';
 import { writeResult } from './output.js';
 import type { OutputFormat, Table } from './output.js';
 import { YApiQueries } from './queries.js';
+import { YApiWrites } from './writes.js';
 
 export interface OutputStreams {
   stdout: (text: string) => void;
@@ -38,6 +40,18 @@ interface ListOptions extends RemoteOptions {
   categoryId?: number;
   limit?: number;
   page?: number;
+}
+
+interface JsonInputOptions extends RemoteOptions {
+  file?: string;
+  stdin?: boolean;
+}
+
+interface ImportOptions extends JsonInputOptions {
+  allowOverwrite?: boolean;
+  merge: 'normal' | 'good' | 'merge';
+  type: string;
+  url?: string;
 }
 
 export async function run(
@@ -66,7 +80,7 @@ export async function run(
     .description('Show local CLI metadata; does not connect to YApi.')
     .action((_options, command) => {
       writeResult(
-        { name: 'openyapi-cli', version, stage: 'sprint1' },
+        { name: 'openyapi-cli', version, stage: 'sprint2' },
         outputFormat(command),
         streams.stdout,
       );
@@ -74,6 +88,7 @@ export async function run(
 
   configureConfigCommands(program, streams);
   configureQueryCommands(program, streams);
+  configureImportCommand(program, streams);
   program.action(() => program.outputHelp());
 
   try {
@@ -92,6 +107,28 @@ export async function run(
     writeError(new CliError('INTERNAL_ERROR', 'Unexpected CLI failure.'), streams.stderr);
     return 1;
   }
+}
+
+function configureImportCommand(program: Command, streams: OutputStreams): void {
+  withRemoteOptions(program.command('import').description('Import an API document into YApi.'))
+    .option('--file <path>', 'read JSON from a file')
+    .option('--stdin', 'read JSON from stdin')
+    .option('--url <url>', 'let YApi fetch the document URL')
+    .requiredOption('--type <type>', 'server import plugin type', nonEmptyArgument('type'))
+    .addOption(new Option('--merge <mode>', 'import merge mode')
+      .choices(['normal', 'good', 'merge'])
+      .default('normal'))
+    .option('--allow-overwrite', 'authorize merge mode overwrites')
+    .action(async (_options: unknown, command: Command) => {
+      const options = command.optsWithGlobals<ImportOptions>();
+      if (options.merge === 'merge' && !options.allowOverwrite) {
+        throw new UsageError('--merge merge requires --allow-overwrite.');
+      }
+      const source = await readImportInput(options);
+      const { writes, format } = writeContext(command);
+      const result = await writes.importDocument(source, options.type, options.merge);
+      writeResult(result, format, streams.stdout);
+    });
 }
 
 function configureConfigCommands(program: Command, streams: OutputStreams): void {
@@ -165,12 +202,21 @@ function configureQueryCommands(program: Command, streams: OutputStreams): void 
       writeResult({ data }, format, streams.stdout, projectTable(data));
     });
 
-  const category = program.command('category').description('Query YApi categories.');
+  const category = program.command('category').description('Read and write YApi categories.');
   withRemoteOptions(category.command('list').description('List project categories.'))
     .action(async (_options, command) => {
       const { queries, format } = queryContext(command, true);
       const data = await queries.categories();
       writeResult({ data }, format, streams.stdout, categoryTable(data));
+    });
+
+  withJsonInput(withRemoteOptions(category.command('create').description('Create a category from JSON.')))
+    .action(async (_options: unknown, command: Command) => {
+      const options = command.optsWithGlobals<JsonInputOptions>();
+      const payload = await readJsonInput(options);
+      const { writes, format } = writeContext(command);
+      const result = await writes.category(payload);
+      writeResult(result, format, streams.stdout);
     });
 
   const interfaceCommand = program.command('interface').description('Query YApi interfaces.');
@@ -181,6 +227,36 @@ function configureQueryCommands(program: Command, streams: OutputStreams): void 
     const { queries, format } = queryContext(command, false);
     const data = await queries.interface(options.id);
     writeResult({ data }, format, streams.stdout, interfaceTable([data]));
+  });
+
+  withJsonInput(withRemoteOptions(
+    interfaceCommand.command('create').description('Create an interface from JSON.'),
+  )).action(async (_options: unknown, command: Command) => {
+    const options = command.optsWithGlobals<JsonInputOptions>();
+    const payload = await readJsonInput(options);
+    const { writes, format } = writeContext(command);
+    const result = await writes.createInterface(payload);
+    writeResult(result, format, streams.stdout);
+  });
+
+  withJsonInput(withRemoteOptions(
+    interfaceCommand.command('save').description('Create or save an interface by path and method.'),
+  )).action(async (_options: unknown, command: Command) => {
+    const options = command.optsWithGlobals<JsonInputOptions>();
+    const payload = await readJsonInput(options);
+    const { writes, format } = writeContext(command);
+    const result = await writes.saveInterface(payload);
+    writeResult(result, format, streams.stdout);
+  });
+
+  withJsonInput(withRemoteOptions(
+    interfaceCommand.command('update').description('Update an interface by ID.'),
+  )).action(async (_options: unknown, command: Command) => {
+    const options = command.optsWithGlobals<JsonInputOptions>();
+    const payload = await readJsonInput(options);
+    const { writes, format } = writeContext(command);
+    const result = await writes.updateInterface(payload);
+    writeResult(result, format, streams.stdout);
   });
 
   withRemoteOptions(interfaceCommand.command('list').description('List interfaces.'))
@@ -217,6 +293,12 @@ function withRemoteOptions(command: Command): Command {
     .option('--timeout-ms <ms>', 'per-request timeout in milliseconds', positiveIntegerArgument('timeout-ms'));
 }
 
+function withJsonInput(command: Command): Command {
+  return command
+    .option('--file <path>', 'read JSON from a file')
+    .option('--stdin', 'read JSON from stdin');
+}
+
 function queryContext(command: Command, requireProjectId: boolean): {
   format: OutputFormat;
   queries: YApiQueries;
@@ -226,6 +308,18 @@ function queryContext(command: Command, requireProjectId: boolean): {
   return {
     format: options.format,
     queries: new YApiQueries(config, options.timeoutMs ?? 30_000),
+  };
+}
+
+function writeContext(command: Command): {
+  format: OutputFormat;
+  writes: YApiWrites;
+} {
+  const options = command.optsWithGlobals<RemoteOptions>();
+  const config = resolveConfig(options.profile, configOverrides(options), true);
+  return {
+    format: options.format,
+    writes: new YApiWrites(config, options.timeoutMs ?? 30_000),
   };
 }
 
@@ -247,6 +341,13 @@ function positiveIntegerArgument(name: string): (value: string) => number {
       throw new InvalidArgumentError(`${name} must be a positive integer.`);
     }
     return parsed;
+  };
+}
+
+function nonEmptyArgument(name: string): (value: string) => string {
+  return (value) => {
+    if (!value.trim()) throw new InvalidArgumentError(`${name} must be nonempty.`);
+    return value;
   };
 }
 

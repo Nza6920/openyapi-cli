@@ -1,0 +1,10 @@
+{
+  "title": "Sprint 2 create",
+  "path": "/openyapi-cli/sprint2/create",
+  "method": "POST",
+  "catid": 1,
+  "req_body_type": "json",
+  "req_body_other": "{\"name\":\"中文\"}",
+  "res_body_type": "json",
+  "res_body": "{\"created\":true}"
+}

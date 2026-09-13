@@ -27,7 +27,7 @@ test('version comes from package metadata', () => {
 test('info emits a single JSON value by default', () => {
   const result = invoke('info');
   assert.equal(result.status, 0);
-  assert.deepEqual(JSON.parse(result.stdout), { name: 'openyapi-cli', version, stage: 'sprint1' });
+  assert.deepEqual(JSON.parse(result.stdout), { name: 'openyapi-cli', version, stage: 'sprint2' });
   assert.equal(result.stderr, '');
 });
 

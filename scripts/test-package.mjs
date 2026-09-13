@@ -52,7 +52,13 @@ function executeAsync(command, args, cwd, options = {}) {
 }
 
 try {
-  const packed = JSON.parse(execute(process.execPath, [npmCli, 'pack', '--json', '--pack-destination', staging], root))[0];
+  const packOutput = JSON.parse(execute(
+    process.execPath,
+    [npmCli, 'pack', '--json', '--pack-destination', staging],
+    root,
+  ));
+  const packed = Array.isArray(packOutput) ? packOutput[0] : Object.values(packOutput)[0];
+  assert.ok(packed, 'npm pack did not return package metadata');
   const files = packed.files.map(({ path }) => path);
   assert.ok(files.includes('dist/main.js'));
   assert.ok(files.includes('LICENSE'));
@@ -63,7 +69,7 @@ try {
   const installed = join(staging, 'node_modules', 'openyapi-cli');
   const entry = join(installed, metadata.bin.openyapi);
   assert.equal(execute(process.execPath, [entry, '--version'], staging), `${metadata.version}\n`);
-  assert.equal(JSON.parse(execute(process.execPath, [entry, 'info'], staging)).stage, 'sprint1');
+  assert.equal(JSON.parse(execute(process.execPath, [entry, 'info'], staging)).stage, 'sprint2');
   const configHome = join(staging, 'config');
   const cleanEnvironment = {
     XDG_CONFIG_HOME: configHome,
@@ -92,14 +98,27 @@ try {
   assert.equal(JSON.parse(shown).token, 'configured');
   assert.doesNotMatch(shown, /package-secret/);
 
-  const fixture = createServer((request, response) => {
+  const requests = [];
+  const fixture = createServer(async (request, response) => {
     const url = new URL(request.url, 'http://fixture.invalid');
-    assert.equal(request.method, 'GET');
-    assert.equal(url.pathname, '/api/project/get');
-    assert.equal(url.searchParams.has('id'), false);
-    assert.equal(url.searchParams.get('token'), 'package-secret');
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const body = Buffer.concat(chunks);
+    requests.push({
+      method: request.method,
+      pathname: url.pathname,
+      query: Object.fromEntries(url.searchParams),
+      body: body.length === 0 ? undefined : JSON.parse(body.toString('utf8')),
+    });
     response.writeHead(200, { 'content-type': 'application/json' });
-    response.end(JSON.stringify({ errcode: 0, data: { _id: 41, name: 'Packaged CLI' } }));
+    const data = url.pathname === '/api/project/get'
+      ? { _id: 41, name: 'Packaged CLI' }
+      : url.pathname === '/api/interface/get'
+        ? { _id: 8, project_id: 41 }
+        : url.pathname === '/api/open/import_data'
+          ? null
+          : { _id: 8 };
+    response.end(JSON.stringify({ errcode: 0, errmsg: 'success', data }));
   });
   await new Promise((resolve) => fixture.listen(0, '127.0.0.1', resolve));
   try {
@@ -129,6 +148,43 @@ try {
     ], staging, { env: cleanEnvironment });
     assert.match(table, /ID\s+NAME\s+BASE PATH\s+TYPE/);
     assert.match(table, /41\s+Packaged CLI/);
+
+    const writes = [
+      [['category', 'create', '--stdin'], { name: '包分类' }],
+      [['interface', 'create', '--stdin'], { title: '新增', path: '/packaged', method: 'POST', catid: 7 }],
+      [['interface', 'save', '--stdin'], { title: '保存', path: '/packaged', method: 'POST', catid: 7 }],
+      [['interface', 'update', '--stdin'], { id: 8, title: '更新' }],
+    ];
+    for (const [args, input] of writes) {
+      const output = await executeAsync(process.execPath, [
+        entry, ...args, '--profile', 'packaged', '--base-url', `http://127.0.0.1:${address.port}`,
+      ], staging, { env: cleanEnvironment, input: JSON.stringify(input) });
+      assert.equal(JSON.parse(output).message, 'success');
+    }
+    const imported = await executeAsync(process.execPath, [
+      entry,
+      'import',
+      '--stdin',
+      '--type',
+      'swagger',
+      '--profile',
+      'packaged',
+      '--base-url',
+      `http://127.0.0.1:${address.port}`,
+    ], staging, { env: cleanEnvironment, input: '{"swagger":"2.0"}' });
+    assert.equal(JSON.parse(imported).message, 'success');
+    assert.deepEqual(
+      requests.filter(({ method }) => method === 'POST').map(({ pathname }) => pathname),
+      [
+        '/api/interface/add_cat',
+        '/api/interface/add',
+        '/api/interface/save',
+        '/api/interface/up',
+        '/api/open/import_data',
+      ],
+    );
+    assert.ok(requests.filter(({ method }) => method === 'POST')
+      .every(({ query, body }) => Object.keys(query).length === 0 && body.token === 'package-secret'));
   } finally {
     await new Promise((resolve, reject) => fixture.close((error) => error ? reject(error) : resolve()));
   }

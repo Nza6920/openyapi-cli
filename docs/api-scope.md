@@ -2,7 +2,7 @@
 
 范围来源：[用户指定页面](https://hellosean1025.github.io/yapi/openapi.html)及其 [iframe 正文](https://hellosean1025.github.io/yapi/openapi-doc.html)。2026-09-12 核对，共 11 个端点。
 
-以下命令中，迭代 1 的六个 GET 已实现并通过本地 HTTP fixture 验收；五个 POST 仍为迭代 2 计划。真实 YApi 实例兼容结果需单独记录，不能由 fixture 代替。
+六个 GET 和五个 POST 均已实现并通过本地 HTTP fixture 验收。用户已确认迭代 1 真实实例验收通过；迭代 2 的真实写入、Windows 和远程 CI 结果仍需单独记录，不能由 fixture 代替。
 
 | 能力 | HTTP | 路径 | 计划命令 | 迭代 |
 | --- | --- | --- | --- | --- |
@@ -37,5 +37,12 @@
 - `project get` 只发送 token，由固定版本的 token 中间件解析实际 `project_id`；客户端再与本地期望 ID 比较。`category list` 和 `interface tree` 发送 `project_id`；`interface get` 发送 `id`；两个列表分别发送 `project_id` 或 `catid`，以及数值 `page`、`limit`。
 - 输出、分页、重定向、重试和错误的权威行为约定见 [design.md](design.md#输出与退出码) 与 [design.md](design.md#配置与认证迭代-1-实现)，此处只维护端点映射及服务端兼容风险。
 - 私有项目的 `getCatMenu` 在固定版本可能要求 edit 权限；服务端拒绝按 `YAPI_ERROR` 原样分类，不提升或绕过权限。
+
+## 迭代 2 写入契约
+
+- `category create`、`interface create/save/update` 分别映射 `add_cat/add/save/up`；`import` 映射 `open/import_data`。全部使用 JSON POST，token 只在 body。
+- 所有命令先做本地输入与身份字段校验，再用 `project get` 预检。update 还使用 `interface get` 验证目标项目。
+- save 依据固定源码按 project + path + method 匹配，并保留可能为空或更新前数据的响应。import 的 `json` 是序列化字符串，`url` 由服务端获取；插件和格式支持需真实实例验证。
+- 输入、输出、覆盖授权、不重试与结果未知的权威说明见 [design.md](design.md#写入约定迭代-2-实现)。固定验收输入与未完成的外部验收见 [Sprint 2 acceptance](acceptance/sprint2.md)。
 
 删除接口、分类修改/删除、项目创建/管理、服务端部署、网页登录、自动化测试管理和未列入此页的导出能力不在首版范围。也不移植服务端源代码或复用旧部署 CLI。

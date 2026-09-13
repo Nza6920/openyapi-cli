@@ -22,3 +22,24 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run test:package
+
+  windows-powershell:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        node: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test:package
+      - name: Windows PowerShell 5.1 installed-package writes
+        shell: powershell
+        run: ./scripts/test-powershell.ps1
+      - name: PowerShell 7 installed-package writes
+        shell: pwsh
+        run: ./scripts/test-powershell.ps1
