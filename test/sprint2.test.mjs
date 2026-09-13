@@ -431,6 +431,98 @@ test('unsupported import plugin errors remain server-owned business failures', a
   }
 });
 
+test('duplicate interface create preserves the YApi business error and sends one POST', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'openyapi-config-'));
+  const server = await fixture(({ response, recorded }) => {
+    if (recorded.pathname === '/api/project/get') {
+      json(response, { errcode: 0, data: { _id: 41 } });
+    } else {
+      json(response, { errcode: 40022, errmsg: 'interface already exists' });
+    }
+  });
+  try {
+    const result = await invoke(['interface', 'create', '--stdin'], {
+      env: remoteEnvironment(configHome, server.baseUrl),
+      input: '{"title":"Duplicate","path":"/duplicate","method":"GET","catid":7}',
+    });
+
+    assert.equal(result.status, 1);
+    assert.deepEqual(JSON.parse(result.stderr), {
+      error: { code: 'YAPI_ERROR', message: 'interface already exists' },
+    });
+    assert.equal(server.requests.filter(({ method }) => method === 'POST').length, 1);
+  } finally {
+    await server.close();
+    await rm(configHome, { recursive: true, force: true });
+  }
+});
+
+test('interface update stops when target details fail or omit ownership', async (t) => {
+  const scenarios = [
+    {
+      name: 'target lookup business error',
+      code: 'YAPI_ERROR',
+      target: { errcode: 400, errmsg: 'missing interface' },
+    },
+    {
+      name: 'target missing project ID',
+      code: 'RESPONSE_ERROR',
+      target: { errcode: 0, data: { _id: 8 } },
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    await t.test(scenario.name, async () => {
+      const configHome = await mkdtemp(join(tmpdir(), 'openyapi-config-'));
+      const server = await fixture(({ response, recorded }) => {
+        json(response, recorded.pathname === '/api/project/get'
+          ? { errcode: 0, data: { _id: 41 } }
+          : scenario.target);
+      });
+      try {
+        const result = await invoke(['interface', 'update', '--stdin'], {
+          env: remoteEnvironment(configHome, server.baseUrl),
+          input: '{"id":8,"title":"Unavailable target"}',
+        });
+        assert.equal(result.status, 1);
+        assert.equal(JSON.parse(result.stderr).error.code, scenario.code);
+        assert.equal(server.requests.filter(({ method }) => method === 'POST').length, 0);
+      } finally {
+        await server.close();
+        await rm(configHome, { recursive: true, force: true });
+      }
+    });
+  }
+});
+
+test('import accepts a JSON file as the source for an explicit mode', async () => {
+  const configHome = await mkdtemp(join(tmpdir(), 'openyapi-config-'));
+  const inputDirectory = await mkdtemp(join(tmpdir(), 'openyapi-import-'));
+  const inputPath = join(inputDirectory, 'API document.json');
+  const document = { swagger: '2.0', paths: { '/file': { get: {} } } };
+  await writeFile(inputPath, JSON.stringify(document));
+  const server = await fixture(({ response, recorded }) => {
+    json(response, {
+      errcode: 0,
+      data: recorded.pathname === '/api/project/get' ? { _id: 41 } : null,
+      errmsg: 'success',
+    });
+  });
+  try {
+    const result = await invoke(['import', '--file', inputPath, '--type', 'swagger', '--merge', 'good'], {
+      env: remoteEnvironment(configHome, server.baseUrl),
+    });
+
+    assert.equal(result.status, 0);
+    assert.equal(server.requests[1].body.json, JSON.stringify(document));
+    assert.equal(server.requests[1].body.merge, 'good');
+  } finally {
+    await server.close();
+    await rm(configHome, { recursive: true, force: true });
+    await rm(inputDirectory, { recursive: true, force: true });
+  }
+});
+
 test('import supports server-fetched URLs and explicit good and authorized merge modes', async () => {
   const configHome = await mkdtemp(join(tmpdir(), 'openyapi-config-'));
   const server = await fixture(({ response, recorded }) => {

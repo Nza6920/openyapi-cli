@@ -1,6 +1,7 @@
 import { get } from './client.js';
 import type { ResolvedConfig } from './config.js';
 import { CliError } from './errors.js';
+import { assertProjectIdentity, preflightProject, requiredProjectId } from './project-identity.js';
 
 export interface PageResult {
   data: unknown[];
@@ -43,7 +44,7 @@ export class YApiQueries {
 
   async categories(): Promise<unknown[]> {
     const projectId = requiredProjectId(this.config);
-    await this.preflightProject();
+    await preflightProject(this.config, this.timeoutMs);
     return requireArray(
       await get(this.config, '/api/interface/getCatMenu', { project_id: projectId }, this.timeoutMs),
       'category list',
@@ -57,7 +58,7 @@ export class YApiQueries {
 
   async tree(): Promise<unknown[]> {
     const projectId = requiredProjectId(this.config);
-    await this.preflightProject();
+    await preflightProject(this.config, this.timeoutMs);
     return requireArray(
       await get(this.config, '/api/interface/list_menu', { project_id: projectId }, this.timeoutMs),
       'interface tree',
@@ -159,30 +160,7 @@ export class YApiQueries {
   }
 
   private async preflightProjectIfConfigured(): Promise<void> {
-    if (this.config.projectId !== undefined) await this.preflightProject();
-  }
-
-  private async preflightProject(): Promise<void> {
-    const projectId = requiredProjectId(this.config);
-    const project = await get(this.config, '/api/project/get', {}, this.timeoutMs);
-    assertProjectIdentity(project, projectId);
-  }
-}
-
-function requiredProjectId(config: ResolvedConfig): number {
-  if (config.projectId === undefined) {
-    throw new CliError('CONFIG_ERROR', 'Missing project ID configuration.');
-  }
-  return config.projectId;
-}
-
-function assertProjectIdentity(value: unknown, expectedProjectId: number): void {
-  const actual = record(value)?._id;
-  if ((typeof actual !== 'number' && typeof actual !== 'string') || Number(actual) !== expectedProjectId) {
-    throw new CliError(
-      'PROJECT_MISMATCH',
-      `Authenticated project does not match configured project ${expectedProjectId}.`,
-    );
+    if (this.config.projectId !== undefined) await preflightProject(this.config, this.timeoutMs);
   }
 }
 

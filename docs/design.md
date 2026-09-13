@@ -35,6 +35,7 @@ src/cli.ts           命令解析、执行与退出码
 src/config.ts        profile 存储与配置优先级
 src/client.ts        GET/POST 传输及 YApi 响应信封校验
 src/input.ts         JSON 文件/stdin 的字节级编码解码与语法校验
+src/project-identity.ts 共享项目 ID 要求、响应核对与认证预检
 src/queries.ts       端点映射、身份预检与分页协议
 src/writes.ts        写入字段契约、归属预检与五个 POST 映射
 src/errors.ts        稳定错误分类

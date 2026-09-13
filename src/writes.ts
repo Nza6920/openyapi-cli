@@ -3,6 +3,7 @@ import type { WriteResult } from './client.js';
 import type { ResolvedConfig } from './config.js';
 import { CliError, UsageError } from './errors.js';
 import type { ImportSource } from './input.js';
+import { preflightProject, requiredProjectId } from './project-identity.js';
 
 export class YApiWrites {
   constructor(
@@ -16,21 +17,21 @@ export class YApiWrites {
       throw new UsageError('Field desc must be a string.');
     }
     const body = this.writePayload(payload);
-    await this.preflightProject();
+    await preflightProject(this.config, this.timeoutMs);
     return post(this.config, '/api/interface/add_cat', body, this.timeoutMs);
   }
 
   async createInterface(payload: Record<string, unknown>): Promise<WriteResult> {
     validateInterfaceCreation(payload);
     const body = this.writePayload(payload);
-    await this.preflightProject();
+    await preflightProject(this.config, this.timeoutMs);
     return post(this.config, '/api/interface/add', body, this.timeoutMs);
   }
 
   async saveInterface(payload: Record<string, unknown>): Promise<WriteResult> {
     validateInterfaceCreation(payload);
     const body = this.writePayload(payload);
-    await this.preflightProject();
+    await preflightProject(this.config, this.timeoutMs);
     return post(this.config, '/api/interface/save', body, this.timeoutMs);
   }
 
@@ -40,7 +41,7 @@ export class YApiWrites {
     }
     const body = this.writePayload(payload);
     const projectId = requiredProjectId(this.config);
-    await this.preflightProject();
+    await preflightProject(this.config, this.timeoutMs);
     const target = record(await get(
       this.config,
       '/api/interface/get',
@@ -71,7 +72,7 @@ export class YApiWrites {
       project_id: projectId,
       ...('url' in source ? { url: source.url } : { json: JSON.stringify(source.document) }),
     };
-    await this.preflightProject();
+    await preflightProject(this.config, this.timeoutMs);
     return post(this.config, '/api/open/import_data', body, this.timeoutMs);
   }
 
@@ -90,24 +91,6 @@ export class YApiWrites {
     return { ...payload, project_id: projectId };
   }
 
-  private async preflightProject(): Promise<void> {
-    const projectId = requiredProjectId(this.config);
-    const project = await get(this.config, '/api/project/get', {}, this.timeoutMs);
-    const actual = record(project)?._id;
-    if (!isIntegerLike(actual) || Number(actual) !== projectId) {
-      throw new CliError(
-        'PROJECT_MISMATCH',
-        `Authenticated project does not match configured project ${projectId}.`,
-      );
-    }
-  }
-}
-
-function requiredProjectId(config: ResolvedConfig): number {
-  if (config.projectId === undefined) {
-    throw new CliError('CONFIG_ERROR', 'Missing project ID configuration.');
-  }
-  return config.projectId;
 }
 
 function requireNonEmptyString(payload: Record<string, unknown>, field: string): void {

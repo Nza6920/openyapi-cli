@@ -210,14 +210,11 @@ function configureQueryCommands(program: Command, streams: OutputStreams): void 
       writeResult({ data }, format, streams.stdout, categoryTable(data));
     });
 
-  withJsonInput(withRemoteOptions(category.command('create').description('Create a category from JSON.')))
-    .action(async (_options: unknown, command: Command) => {
-      const options = command.optsWithGlobals<JsonInputOptions>();
-      const payload = await readJsonInput(options);
-      const { writes, format } = writeContext(command);
-      const result = await writes.category(payload);
-      writeResult(result, format, streams.stdout);
-    });
+  configureJsonWrite(
+    category.command('create').description('Create a category from JSON.'),
+    streams,
+    (writes, payload) => writes.category(payload),
+  );
 
   const interfaceCommand = program.command('interface').description('Query YApi interfaces.');
   withRemoteOptions(
@@ -229,35 +226,21 @@ function configureQueryCommands(program: Command, streams: OutputStreams): void 
     writeResult({ data }, format, streams.stdout, interfaceTable([data]));
   });
 
-  withJsonInput(withRemoteOptions(
+  configureJsonWrite(
     interfaceCommand.command('create').description('Create an interface from JSON.'),
-  )).action(async (_options: unknown, command: Command) => {
-    const options = command.optsWithGlobals<JsonInputOptions>();
-    const payload = await readJsonInput(options);
-    const { writes, format } = writeContext(command);
-    const result = await writes.createInterface(payload);
-    writeResult(result, format, streams.stdout);
-  });
-
-  withJsonInput(withRemoteOptions(
+    streams,
+    (writes, payload) => writes.createInterface(payload),
+  );
+  configureJsonWrite(
     interfaceCommand.command('save').description('Create or save an interface by path and method.'),
-  )).action(async (_options: unknown, command: Command) => {
-    const options = command.optsWithGlobals<JsonInputOptions>();
-    const payload = await readJsonInput(options);
-    const { writes, format } = writeContext(command);
-    const result = await writes.saveInterface(payload);
-    writeResult(result, format, streams.stdout);
-  });
-
-  withJsonInput(withRemoteOptions(
+    streams,
+    (writes, payload) => writes.saveInterface(payload),
+  );
+  configureJsonWrite(
     interfaceCommand.command('update').description('Update an interface by ID.'),
-  )).action(async (_options: unknown, command: Command) => {
-    const options = command.optsWithGlobals<JsonInputOptions>();
-    const payload = await readJsonInput(options);
-    const { writes, format } = writeContext(command);
-    const result = await writes.updateInterface(payload);
-    writeResult(result, format, streams.stdout);
-  });
+    streams,
+    (writes, payload) => writes.updateInterface(payload),
+  );
 
   withRemoteOptions(interfaceCommand.command('list').description('List interfaces.'))
     .option('--category-id <id>', 'category ID', positiveIntegerArgument('category-id'))
@@ -297,6 +280,19 @@ function withJsonInput(command: Command): Command {
   return command
     .option('--file <path>', 'read JSON from a file')
     .option('--stdin', 'read JSON from stdin');
+}
+
+function configureJsonWrite(
+  command: Command,
+  streams: OutputStreams,
+  operation: (writes: YApiWrites, payload: Record<string, unknown>) => Promise<unknown>,
+): void {
+  withJsonInput(withRemoteOptions(command)).action(async (_options: unknown, actionCommand: Command) => {
+    const options = actionCommand.optsWithGlobals<JsonInputOptions>();
+    const payload = await readJsonInput(options);
+    const { writes, format } = writeContext(actionCommand);
+    writeResult(await operation(writes, payload), format, streams.stdout);
+  });
 }
 
 function queryContext(command: Command, requireProjectId: boolean): {
