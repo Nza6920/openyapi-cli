@@ -1,45 +1,45 @@
-# 工作约定
+# Working conventions
 
-## 按任务读取上下文
+## Load context by task
 
-- **实现或调整功能**：先读 [迭代计划](docs/roadmap.md)，确定本次范围、依赖和验收条件；用代码核实已实现状态，计划中的命令不代表可用能力。
-- **修改架构、CLI 输出、配置认证、写入行为或打包方式**：先读 [技术选型与行为约定](docs/design.md) 的对应章节。已确认的决策直接执行；遇到未决且会改变外部行为的选择时，先对齐该选择。
-- **实现或排查 YApi 调用**：先读 [端点映射与兼容风险](docs/api-scope.md)，再核对目标服务端版本。将文档示例、上游源码和实例验证结果分别记录。
-- **安装、运行或验证项目**：读 [README](README.md)；脚本和依赖版本以 [package.json](package.json)、package-lock.json 为准，运行时矩阵以 [CI 配置](.github/workflows/ci.yml) 为准。
-- **发布 npm**：按 [迭代计划的发布验收](docs/roadmap.md#迭代-3兼容验收与-npm-首次发布) 完成检查；发布目标、版本及授权明确后才执行发布。
+- **Implement or adjust a feature:** Read the [roadmap](docs/roadmap.md) first to establish the scope, dependencies, and acceptance criteria. Verify the implemented state in the code; commands in the plan do not imply that the capability is available.
+- **Change the architecture, CLI output, configuration or authentication, write behavior, or packaging:** Read the relevant section of the [technical choices and behavior contract](docs/design.md) first. Apply confirmed decisions directly. Align on any unresolved choice that would change external behavior before proceeding.
+- **Implement or troubleshoot YApi calls:** Read the [endpoint mapping and compatibility risks](docs/api-scope.md) first, then verify the target server version. Record documentation examples, upstream source findings, and instance validation results separately.
+- **Install, run, or validate the project:** Read the [README](README.md). Treat [package.json](package.json) and package-lock.json as authoritative for scripts and dependency versions, and the [CI configuration](.github/workflows/ci.yml) as authoritative for the runtime matrix.
+- **Publish to npm:** Complete the [roadmap release acceptance checks](docs/roadmap.md#%E8%BF%AD%E4%BB%A3-3%E5%85%BC%E5%AE%B9%E9%AA%8C%E6%94%B6%E4%B8%8E-npm-%E9%A6%96%E6%AC%A1%E5%8F%91%E5%B8%83). Publish only after the target, version, and authorization are explicit.
 
-## 完成条件
+## Completion criteria
 
-- 代码改动运行 package.json 中的 `check`；涉及依赖、构建、入口或发布内容时，再运行 `test:package`，验证实际安装包。
-- CLI 行为用编译后进程的 stdout、stderr 和退出码验证；YApi 行为的测试与实例验收按当前迭代要求执行。
-- 文档改动核对链接、命令和实现状态；功能或契约变化同步更新对应文档，约定保留在一个权威位置。
-- 交付时说明实际通过的检查、运行环境及未完成的验收；本地通过与远程 CI、模拟服务与真实实例分别报告。
+- For code changes, run the `check` script from package.json. If dependencies, the build, entry points, or published contents change, also run `test:package` to validate the actual package.
+- Validate CLI behavior through the compiled process's stdout, stderr, and exit code. Test YApi behavior and perform instance acceptance according to the current iteration's requirements.
+- For documentation changes, verify links, commands, and implementation status. Update the corresponding documentation when a feature or contract changes, and keep each convention in one authoritative location.
+- On handoff, report the checks that actually passed, the runtime environment, and any incomplete acceptance work. Report local versus remote CI results and mock-service versus real-instance results separately.
 
 <!-- CODEGRAPH_START -->
 ## CodeGraph
 
-根目录存在 `.codegraph/` 时，理解或定位代码先用 CodeGraph，再用 `rg` 或直接读文件：
+When the repository root contains `.codegraph/`, use CodeGraph before `rg` or direct file reads to understand or locate code:
 
-- 有 MCP 工具时使用 `codegraph_explore`；若工具延迟加载，先按名称发现工具。
-- Shell 使用 `codegraph explore "<符号、文件名或问题>"`，可获取源码和调用路径。
-- 结果为空、不相关或缺少目标文件时，回退到 `rg` 和当前文件；空结果不能证明代码不存在。
+- Use the `codegraph_explore` MCP tool when available. If it is deferred, discover it by name first.
+- From the shell, run `codegraph explore "<symbols, file names, or question>"` to retrieve source and call paths.
+- If the result is empty, irrelevant, or missing the target file, fall back to `rg` and the current files. An empty result does not prove that code is absent.
 
-没有 `.codegraph/` 时跳过；是否建立索引由用户决定。
+Skip CodeGraph when `.codegraph/` is absent; indexing is the user's decision.
 <!-- CODEGRAPH_END -->
 
 <!-- context7 -->
-## 外部技术文档
+## External technical documentation
 
-涉及库、框架、SDK、API、CLI 工具或云服务的用法、配置、迁移、安装和特定行为调试时，使用 Context7 查询当前文档。纯重构、从零写脚本、业务逻辑调试、代码评审及一般编程概念无需触发。
+Use Context7 to retrieve current documentation for usage, configuration, migration, installation, or behavior-specific debugging involving a library, framework, SDK, API, CLI tool, or cloud service. Do not invoke it for pure refactoring, scripts written from scratch, business-logic debugging, code review, or general programming concepts.
 
-1. 在默认沙箱外运行 `npx ctx7@latest library <官方名称> "<具体查询>"`。名称使用官方拼写与标点。
-2. 从结果选取相关 ID：优先精确名称、描述相关、可信来源，再比较示例数量与评分。无匹配时调整名称或查询，不以同名无关项目代替目标。
-3. 运行 `npx ctx7@latest docs <libraryId> "<具体查询>"`。每次聚焦一个概念；仅在研究交互关系时合并概念。版本问题使用检索结果中的版本 ID。
-4. 根据取回的文档实现或回答，并保留相关来源。
+1. Outside the default sandbox, run `npx ctx7@latest library <official name> "<specific query>"`. Use the official spelling and punctuation.
+2. Select the relevant ID from the results. Prefer an exact name match, a relevant description, and a trusted source, then compare snippet counts and scores. If nothing matches, adjust the name or query; do not substitute an unrelated project with the same name.
+3. Run `npx ctx7@latest docs <libraryId> "<specific query>"`. Focus each query on one concept; combine concepts only when researching their interaction. For version-specific questions, use the versioned ID from the search results.
+4. Implement or answer from the retrieved documentation and retain the relevant sources.
 
-用户直接提供 `/org/project` 格式 ID 时可跳过 library；否则必须先解析。每个问题最多执行 3 次 Context7 命令，查询中不包含凭据或其他敏感值。
+If the user provides an ID in `/org/project` format, the library lookup may be skipped; otherwise, resolve the library first. Run at most three Context7 commands per question. Do not include credentials or other sensitive values in queries.
 
-遇到 DNS、解析或 fetch 错误时，在沙箱外重试。遇到配额错误时告知用户，建议 `npx ctx7@latest login` 或配置 `CONTEXT7_API_KEY`；不得静默改用训练记忆。未收录目标时说明缺口，再查官方文档或源码。
+Retry outside the sandbox after DNS, name-resolution, or fetch errors. For quota errors, tell the user and suggest `npx ctx7@latest login` or setting `CONTEXT7_API_KEY`; do not silently fall back to training memory. If the target is not indexed, state the gap, then consult official documentation or source code.
 <!-- context7 -->
 
 ## Agent skills
