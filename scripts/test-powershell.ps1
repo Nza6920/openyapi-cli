@@ -24,6 +24,31 @@ function Invoke-CheckedCli {
   return ($result -join [Environment]::NewLine)
 }
 
+function Assert-UsageFailure {
+  param([Parameter(Mandatory = $true)][string[]]$Arguments)
+  $stdoutFile = Join-Path $scratch 'failure-stdout.txt'
+  $stderrFile = Join-Path $scratch 'failure-stderr.txt'
+  $process = Start-Process -FilePath $script:openyapi -ArgumentList $Arguments `
+    -Wait -PassThru -NoNewWindow `
+    -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+  $stdout = [IO.File]::ReadAllText($stdoutFile)
+  $stderr = [IO.File]::ReadAllText($stderrFile)
+  if ($process.ExitCode -ne 2) {
+    throw "Expected usage exit 2, received $($process.ExitCode)."
+  }
+  if (-not [string]::IsNullOrEmpty($stdout)) {
+    throw "Expected empty stdout for usage failure: $stdout"
+  }
+  try {
+    $parsed = $stderr | ConvertFrom-Json
+  } catch {
+    throw "Expected structured JSON stderr: $stderr"
+  }
+  if ($parsed.error.code -ne 'USAGE_ERROR') {
+    throw "Unexpected usage failure: $stderr"
+  }
+}
+
 try {
   New-Item -ItemType Directory -Path $scratch | Out-Null
   $node = (Get-Command node).Source
@@ -59,6 +84,7 @@ try {
 
   $null = Invoke-CheckedCli -Arguments @('config', 'set', 'windows', '--base-url', $baseUrl, '--project-id', '41') -InputText $null
   $null = Invoke-CheckedCli -Arguments @('config', 'token', 'set', 'windows', '--stdin') -InputText 'powershell-secret'
+  Assert-UsageFailure -Arguments @('category', 'create')
 
   $inputDirectory = Join-Path $scratch '中文 inputs with spaces'
   New-Item -ItemType Directory -Path $inputDirectory | Out-Null
