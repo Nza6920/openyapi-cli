@@ -223,8 +223,10 @@ test('profile and token lifecycle is isolated, permission-restricted, and redact
     assert.doesNotMatch(listed.stdout + listed.stderr, /stored-secret/);
 
     const configFile = join(configHome, 'openyapi', 'profiles.json');
-    assert.equal((await stat(join(configHome, 'openyapi'))).mode & 0o777, 0o700);
-    assert.equal((await stat(configFile)).mode & 0o777, 0o600);
+    if (process.platform !== 'win32') {
+      assert.equal((await stat(join(configHome, 'openyapi'))).mode & 0o777, 0o700);
+      assert.equal((await stat(configFile)).mode & 0o777, 0o600);
+    }
     assert.equal(JSON.parse(await readFile(configFile, 'utf8')).profiles.default.token, 'stored-secret');
 
     const unset = await invoke(['config', 'token', 'unset'], { env });

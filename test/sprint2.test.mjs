@@ -611,9 +611,9 @@ test('write transport and protocol failures are stable, redacted, and never retr
       name: 'timeout',
       code: 'TIMEOUT_ERROR',
       unknown: true,
-      timeout: 50,
+      timeout: 1_000,
       respond: async ({ response }) => {
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        await new Promise((resolve) => setTimeout(resolve, 3_000));
         json(response, { errcode: 0, data: { _id: 7 } });
       },
     },
