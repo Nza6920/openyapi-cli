@@ -4,7 +4,7 @@
 
 面向开发者、AI Agent 和 CI 的 YApi OpenAPI 命令行客户端。
 
-Sprint 2 的配置、六个只读端点和五个写入/导入端点已实现，并通过本地 HTTP fixture 和真实 tarball 隔离安装测试。用户已确认 Sprint 1 真实实例验收通过；Sprint 2 真实实例、Windows 和远程 CI 结果仍待单独记录。当前仍是未发布的 `0.1.0-alpha.0`。
+Sprint 2 的配置、六个只读端点和五个写入/导入端点已实现，并分别通过本地 HTTP fixture、真实 tarball、Windows/远程 CI 及专用 YApi 项目写后核对。当前仍是未发布的 `0.1.0-alpha.0`。
 
 ## 本地开始
 
@@ -116,7 +116,7 @@ npm run test:package
 
 `check` 执行类型检查、构建和编译后 CLI 黑盒测试。`test:package` 生成真实 tarball，在临时目录仅安装运行时依赖，并通过安装入口验证全部五个写命令。
 
-兼容契约固定为官方 YMFE/yapi tag `v1.12.0`、commit `f856193ded851326a9aea19ff28d1c20c653bbab`（该 tag 的 package version 仍为 1.11.0）。用户已确认 Sprint 1 真实实例验收通过，但仓库中没有其版本和脱敏证据；Sprint 2 真实写入验收、Windows 运行结果和远程 CI 仍待完成。项目尚未发布到 npm。
+兼容契约固定为官方 YMFE/yapi tag `v1.12.0`、commit `f856193ded851326a9aea19ff28d1c20c653bbab`（该 tag 的 package version 仍为 1.11.0）。Sprint 2 已在前端版本证据为 1.10.2 的专用实例完成真实写入验收；该实例的 `swagger` 插件忽略输入 `basePath`。源码基线、实例结果及 CI 证据详见 [Sprint 2 验收记录](docs/acceptance/sprint2.md)。项目尚未发布到 npm。
 
 ## 范围与计划
 

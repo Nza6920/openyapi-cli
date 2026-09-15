@@ -57,7 +57,7 @@
 
 实现状态（2026-09-15）：五个 POST 命令、文件/stdin/URL 输入、UTF-8/UTF-16LE 解码、项目与目标归属预检、覆盖授权、稳定输出、脱敏与不重试已实现。编译后 CLI fixture 与真实 tarball 隔离安装检查覆盖全部写入映射；GitHub Actions run 34921136369 已在 Node 22/24 的 Linux 与 Windows 上通过 check 和 test:package，两个 Windows job 均通过 PowerShell 5.1/7 安装后流程及失败退出契约。
 
-未完成验收：仓库没有专用 YApi 测试项目凭据，因此新增、更新与三种导入模式的真实实例写后核对仍由 Issue #14 跟踪。Windows 与远程 CI 验收已完成，分层证据见 [Sprint 2 acceptance](acceptance/sprint2.md)。
+验收状态（2026-09-15）：专用私有测试项目已完成分类新增、interface create、save 新增与更新、按 ID update，以及 swagger normal/good/merge 三种导入的逐步写后核对；未自动重试、删除、补偿或回放数据。实例前端构建证据为版本 1.10.2，部署的 swagger 插件忽略 fixture `basePath` 并将三份文档映射到 `/items`。Windows、远程 CI 与真实实例的分层证据见 [Sprint 2 acceptance](acceptance/sprint2.md)。
 
 ## 迭代 3：兼容验收与 npm 首次发布
 

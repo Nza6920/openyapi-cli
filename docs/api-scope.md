@@ -2,7 +2,7 @@
 
 范围来源：[用户指定页面](https://hellosean1025.github.io/yapi/openapi.html)及其 [iframe 正文](https://hellosean1025.github.io/yapi/openapi-doc.html)。2026-09-12 核对，共 11 个端点。
 
-六个 GET 和五个 POST 均已实现并通过本地 HTTP fixture 验收。用户已确认迭代 1 真实实例验收通过；迭代 2 的真实写入、Windows 和远程 CI 结果仍需单独记录，不能由 fixture 代替。
+六个 GET 和五个 POST 均已实现。迭代 2 已分别完成本地 fixture、真实 tarball、Windows/远程 CI，以及专用 YApi 项目的真实写入与后读验收；各层证据仍需分开理解，不能互相替代。
 
 | 能力 | HTTP | 路径 | 计划命令 | 迭代 |
 | --- | --- | --- | --- | --- |
@@ -43,6 +43,7 @@
 - `category create`、`interface create/save/update` 分别映射 `add_cat/add/save/up`；`import` 映射 `open/import_data`。全部使用 JSON POST，token 只在 body。
 - 所有命令先做本地输入与身份字段校验，再用 `project get` 预检。update 还使用 `interface get` 验证目标项目。
 - save 依据固定源码按 project + path + method 匹配，并保留可能为空或更新前数据的响应。import 的 `json` 是序列化字符串，`url` 由服务端获取；插件和格式支持需真实实例验证。
-- 输入、输出、覆盖授权、不重试与结果未知的权威说明见 [design.md](design.md#写入约定迭代-2-实现)。固定验收输入与未完成的外部验收见 [Sprint 2 acceptance](acceptance/sprint2.md)。
+- 2026-09-15 的专用项目验收实例前端版本证据为 1.10.2；其 `swagger` 插件支持 normal/good/merge，但忽略输入 `basePath`。这是该部署的实测结果，不覆盖固定 v1.12.0 源码基线，也不外推到其他实例。
+- 输入、输出、覆盖授权、不重试与结果未知的权威说明见 [design.md](design.md#写入约定迭代-2-实现)。固定验收输入、分层结果与部署差异见 [Sprint 2 acceptance](acceptance/sprint2.md)。
 
 删除接口、分类修改/删除、项目创建/管理、服务端部署、网页登录、自动化测试管理和未列入此页的导出能力不在首版范围。也不移植服务端源代码或复用旧部署 CLI。

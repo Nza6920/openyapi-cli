@@ -4,7 +4,7 @@
 
 A YApi OpenAPI command-line client for developers, AI agents, and CI.
 
-Sprint 2 configuration, all six read endpoints, and all five write/import endpoints are implemented and covered by local HTTP fixtures and isolated real-tarball tests. The user confirmed Sprint 1 real-instance acceptance passed; Sprint 2 real-instance, Windows, and remote CI results still need separate evidence. This remains the unpublished `0.1.0-alpha.0`.
+Sprint 2 configuration, all six read endpoints, and all five write/import endpoints are implemented and separately covered by local HTTP fixtures, isolated real-tarball tests, Windows/remote CI, and dedicated-project write/read-back acceptance. This remains the unpublished `0.1.0-alpha.0`.
 
 ## Getting started locally
 
@@ -99,7 +99,7 @@ npm run test:package
 
 `check` runs type checking, the build, and compiled-CLI black-box tests. `test:package` creates a real tarball, installs runtime dependencies only in a temporary directory, and exercises all five write commands through the installed entry point.
 
-The source contract is pinned to official YMFE/yapi tag `v1.12.0`, commit `f856193ded851326a9aea19ff28d1c20c653bbab` (whose package version is still 1.11.0). The user confirmed Sprint 1 real-instance acceptance passed, though its version and redacted evidence are not stored here. Sprint 2 real-instance write acceptance, executed Windows jobs, and remote CI results remain pending. The package has not been published to npm.
+The source contract is pinned to official YMFE/yapi tag `v1.12.0`, commit `f856193ded851326a9aea19ff28d1c20c653bbab` (whose package version is still 1.11.0). Sprint 2 real writes were accepted on a dedicated instance whose frontend bundle identifies version 1.10.2; that deployment's `swagger` plugin ignores input `basePath`. See the [Sprint 2 acceptance record](docs/acceptance/sprint2.md) for separated source, instance, Windows, and CI evidence. The package has not been published to npm.
 
 ## Scope and roadmap
 
