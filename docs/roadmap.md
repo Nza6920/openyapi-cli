@@ -55,9 +55,9 @@
 - 测试项目中新增、修改与三种导入模式均做后读核对；固定输入与脱敏预期结果。
 - 明确服务端实际支持的导入格式，不以文件扩展名代替兼容性判断。
 
-实现状态（2026-09-13）：五个 POST 命令、文件/stdin/URL 输入、UTF-8/UTF-16LE 解码、项目与目标归属预检、覆盖授权、稳定输出、脱敏与不重试已实现。编译后 CLI fixture 与真实 tarball 隔离安装检查覆盖全部写入映射；CI 已配置 Node 22/24 下的 Windows PowerShell 5.1/7 安装后流程。
+实现状态（2026-09-15）：五个 POST 命令、文件/stdin/URL 输入、UTF-8/UTF-16LE 解码、项目与目标归属预检、覆盖授权、稳定输出、脱敏与不重试已实现。编译后 CLI fixture 与真实 tarball 隔离安装检查覆盖全部写入映射；GitHub Actions run 34921136369 已在 Node 22/24 的 Linux 与 Windows 上通过 check 和 test:package，两个 Windows job 均通过 PowerShell 5.1/7 安装后流程及失败退出契约。
 
-未完成验收：当前环境未执行 Windows job，远程 CI 尚无本次运行结果；仓库也没有专用 YApi 测试项目凭据，因此未执行新增、更新与三种导入模式的写后核对。详见 [Sprint 2 acceptance](acceptance/sprint2.md)。
+未完成验收：仓库没有专用 YApi 测试项目凭据，因此新增、更新与三种导入模式的真实实例写后核对仍由 Issue #14 跟踪。Windows 与远程 CI 验收已完成，分层证据见 [Sprint 2 acceptance](acceptance/sprint2.md)。
 
 ## 迭代 3：兼容验收与 npm 首次发布
 
