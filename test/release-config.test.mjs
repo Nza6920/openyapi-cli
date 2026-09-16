@@ -33,7 +33,27 @@ test('first publish workflow is manual, fixed, protected, and provenance-enabled
     assert.match(workflow, /npm run test:package/);
     assert.match(workflow, /npm pack --json/);
     assert.match(workflow, /npm publish --access public --provenance --tag "\$EXPECTED_TAG"/);
+    assert.match(workflow, /for attempt in \{1\.\.12\}/);
+    assert.match(workflow, /sleep 5/);
+    assert.match(workflow, /registry_version="\$\(npm view/);
+    assert.match(workflow, /registry_tag="\$\(npm view/);
     assert.match(workflow, /NODE_AUTH_TOKEN: \$\{\{ secrets\.NPM_TOKEN \}\}/);
     assert.doesNotMatch(workflow, /npm unpublish|npm dist-tag add/);
   }
+});
+
+test('post-publication recovery verifies the fixed artifact without writing npm state', () => {
+  const workflow = read('.github/workflows/verify-published-0.1.0.yml');
+  assert.match(workflow, /^on:\r?\n  workflow_dispatch:\s*$/m);
+  assert.doesNotMatch(workflow, /^\s+(?:push|pull_request|release|schedule):/m);
+  assert.match(workflow, /contents: read/);
+  assert.match(workflow, /environment: npm-production/);
+  assert.match(workflow, /EXPECTED_COMMIT: 7337b79835ff26f2e5387a081aa3d9ea15296602/);
+  assert.match(workflow, /EXPECTED_TAG: v0\.1\.0/);
+  assert.match(workflow, /npm ci/);
+  assert.match(workflow, /npm pack --json/);
+  assert.match(workflow, /npm view "\$EXPECTED_NAME@\$EXPECTED_VERSION"/);
+  assert.match(workflow, /npm\/v1\/attestations/);
+  assert.match(workflow, /gitCommit/);
+  assert.doesNotMatch(workflow, /npm publish|npm dist-tag|NODE_AUTH_TOKEN|secrets\./);
 });

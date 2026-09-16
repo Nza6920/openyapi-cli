@@ -91,12 +91,23 @@ jobs:
           publish_status=$?
           set -e
 
-          set +e
-          registry_version="$(npm view "$EXPECTED_NAME@$EXPECTED_VERSION" version --registry="$EXPECTED_REGISTRY" 2>/dev/null)"
-          read_status=$?
-          registry_tag="$(npm view "$EXPECTED_NAME" "dist-tags.$EXPECTED_TAG" --registry="$EXPECTED_REGISTRY" 2>/dev/null)"
-          tag_status=$?
-          set -e
+          registry_version=""
+          registry_tag=""
+          read_status=1
+          tag_status=1
+          for attempt in {1..12}; do
+            set +e
+            registry_version="$(npm view "$EXPECTED_NAME@$EXPECTED_VERSION" version --registry="$EXPECTED_REGISTRY" 2>/dev/null)"
+            read_status=$?
+            registry_tag="$(npm view "$EXPECTED_NAME" "dist-tags.$EXPECTED_TAG" --registry="$EXPECTED_REGISTRY" 2>/dev/null)"
+            tag_status=$?
+            set -e
+            if [ "$read_status" -eq 0 ] && [ "$registry_version" = "$EXPECTED_VERSION" ] \
+              && [ "$tag_status" -eq 0 ] && [ "$registry_tag" = "$EXPECTED_VERSION" ]; then
+              break
+            fi
+            if [ "$attempt" -lt 12 ]; then sleep 5; fi
+          done
 
           if [ "$publish_status" -ne 0 ]; then
             if [ "$read_status" -eq 0 ] && [ "$registry_version" = "$EXPECTED_VERSION" ]; then

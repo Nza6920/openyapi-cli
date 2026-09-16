@@ -14,12 +14,18 @@ does not prove compatibility with a deployed YApi instance.
 | Linux CI | Node 22 and Node 24 | passed remotely (2026-09-16) | Both jobs passed `check` and `test:package` for SHA `c07a387` in [run 35058593062](https://github.com/Nza6920/openyapi-cli/actions/runs/35058593062). |
 | Windows CI | Node 22 and Node 24 | passed remotely (2026-09-16) | Both jobs passed `check`, `test:package`, PowerShell 5.1, and PowerShell 7 for SHA `c07a387` in run 35058593062. |
 | macOS CI | Node 22 and Node 24 | passed remotely (2026-09-16) | Both jobs passed `check` and `test:package` for SHA `c07a387` in run 35058593062. |
-| Public registry | `openyapi-cli@0.1.0` under `next` | pending | Requires authorized issue #20, then a clean registry installation under issue #21. |
+| Public registry | `openyapi-cli@0.1.0` under `next` | passed (2026-09-16) | Clean `--prefer-online` install resolved `https://registry.npmjs.org/openyapi-cli/-/openyapi-cli-0.1.0.tgz` with `sha512-szWpThZUsnkoVVxcIgcRlzcrSXrGxS0sEV8CbdsEz1314HAUEHWdzoQXZnzMwa3/kFHHWiR1wUn36f2iuqTSkg==`; installed CLI/config/fixture acceptance passed. |
 | real YApi | approved read-only instance | pending | Requires the registry-installed binary and authorized issue #22. |
 
 The package declares Node `>=22`, but only Node 22 and 24 are in the verified
 matrix. No result for those versions implies support for every later Node major
 or every operating-system variant.
+
+## First public publication result
+
+- The protected publish run [35060694115](https://github.com/Nza6920/openyapi-cli/actions/runs/35060694115) printed `+ openyapi-cli@0.1.0` and signed a SLSA provenance statement. Its immediate read-back ran before registry propagation and marked the job failed; an independent fresh read confirmed the version, 30-file tarball, integrity, repository metadata, and npm attestation endpoint. Issue #20 remains open until the protected `Verify published 0.1.0 recovery` workflow succeeds against those immutable facts.
+- The workflow requested only dist-tag `next`; current public registry read-back returns both `next` and `latest` as `0.1.0`. No repository `npm dist-tag` command was run. This is an observed registry state, not evidence that the planned #22 promotion was executed; do not change dist-tags without the explicit #22 human decision.
+- #21 registry acceptance used a fresh temporary cache and directory, `npm install --prefer-online --omit=dev openyapi-cli@0.1.0`, an isolated `XDG_CONFIG_HOME`, and a local HTTP fixture. It verified version/info/help, profile/token set/show/list/unset/delete with redaction, JSON/table read output, a fixture-only category POST mapping, and usage-error stdout/stderr/exit code. It did not contact a real YApi service or leave a test token on disk.
 
 ## Existing upstream and Sprint 2 evidence
 

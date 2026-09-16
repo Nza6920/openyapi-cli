@@ -1,0 +1,77 @@
+name: Verify published 0.1.0 recovery
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  EXPECTED_NAME: openyapi-cli
+  EXPECTED_VERSION: 0.1.0
+  EXPECTED_TAG: v0.1.0
+  EXPECTED_COMMIT: 7337b79835ff26f2e5387a081aa3d9ea15296602
+  EXPECTED_REGISTRY: https://registry.npmjs.org/
+
+jobs:
+  verify:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: npm-production
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.EXPECTED_TAG }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: ${{ env.EXPECTED_REGISTRY }}
+
+      - name: Verify the immutable release source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          git tag --points-at HEAD | grep -Fx "$EXPECTED_TAG"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+            const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+            if (packageJson.name !== process.env.EXPECTED_NAME) process.exit(1);
+            if (packageJson.version !== process.env.EXPECTED_VERSION) process.exit(1);
+            if (lock.packages?.[""]?.version !== process.env.EXPECTED_VERSION) process.exit(1);
+          '
+
+      - run: npm ci
+      - run: npm run check
+
+      - name: Verify public artifact, dist-tag, and provenance source
+        run: |
+          set -euo pipefail
+          pack_json="$(npm pack --json --pack-destination "$RUNNER_TEMP")"
+          metadata="$(npm view "$EXPECTED_NAME@$EXPECTED_VERSION" version dist.integrity 'dist.attestations.provenance.predicateType' repository --registry="$EXPECTED_REGISTRY" --json)"
+          next_tag="$(npm view "$EXPECTED_NAME" "dist-tags.next" --registry="$EXPECTED_REGISTRY")"
+          PACK_JSON="$pack_json" METADATA="$metadata" NEXT_TAG="$next_tag" node --input-type=module -e '
+            const expected = process.env;
+            const [packed] = JSON.parse(expected.PACK_JSON);
+            const metadata = JSON.parse(expected.METADATA);
+            if (packed?.name !== expected.EXPECTED_NAME) process.exit(1);
+            if (packed?.version !== expected.EXPECTED_VERSION) process.exit(1);
+            if (metadata.version !== expected.EXPECTED_VERSION) process.exit(1);
+            if (metadata["dist.integrity"] !== packed.integrity) process.exit(1);
+            if (process.env.NEXT_TAG !== expected.EXPECTED_VERSION) process.exit(1);
+            if (metadata["dist.attestations.provenance.predicateType"] !== "https://slsa.dev/provenance/v1") process.exit(1);
+            if (metadata.repository?.url !== "git+https://github.com/Nza6920/openyapi-cli.git") process.exit(1);
+            const response = await fetch(`${expected.EXPECTED_REGISTRY}-/npm/v1/attestations/${expected.EXPECTED_NAME}@${expected.EXPECTED_VERSION}`);
+            if (!response.ok) process.exit(1);
+            const { attestations } = await response.json();
+            const slsa = attestations.find(({ predicateType }) => predicateType === "https://slsa.dev/provenance/v1");
+            const statement = JSON.parse(Buffer.from(slsa?.bundle?.dsseEnvelope?.payload ?? "", "base64").toString("utf8"));
+            const workflow = statement?.predicate?.buildDefinition?.externalParameters?.workflow;
+            const dependencies = statement?.predicate?.buildDefinition?.resolvedDependencies ?? [];
+            if (workflow?.repository !== "https://github.com/Nza6920/openyapi-cli") process.exit(1);
+            if (workflow?.path !== ".github/workflows/publish-next.yml") process.exit(1);
+            if (!dependencies.some(({ digest }) => digest?.gitCommit === expected.EXPECTED_COMMIT)) process.exit(1);
+          '

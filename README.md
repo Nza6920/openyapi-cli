@@ -12,11 +12,11 @@
 - 最低运行时：Node.js 22
 - 已验证运行时矩阵：Node 22、Node 24；`engines.node >=22` 不表示所有未来 Node 主版本都已经验证
 
-`0.1.0` 当前仍是发布候选版本，尚未公开发布。registry 安装、`next`/`latest` 和 GitHub Release 状态以 [Sprint 3 验收记录](docs/acceptance/sprint3.md) 为准。
+`0.1.0` 已公开发布；可从 npm 安装。当前 registry 读回的 `next` 与 `latest` 均解析为 `0.1.0`，但 GitHub Release 和真实 YApi 只读验收尚未完成。完整分层状态以 [Sprint 3 验收记录](docs/acceptance/sprint3.md) 为准。
 
 ## 快速开始
 
-以下 registry 命令在 `0.1.0` 完成首次公开发布后可用：
+从 registry 安装或临时执行：
 
 ```sh
 npm install --global openyapi-cli@0.1.0

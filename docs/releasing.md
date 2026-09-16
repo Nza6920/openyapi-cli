@@ -36,6 +36,20 @@ If publish times out, disconnects, or reports failure, treat the outcome as
 unknown. Read the exact package version and dist-tag from the registry. Do not
 retry and do not unpublish merely because the transport result was unclear.
 
+The first `0.1.0` publish printed npm success, but its immediate in-workflow
+read-back ran before registry propagation and marked the run failed. A later
+independent read confirmed `openyapi-cli@0.1.0`, its tarball/integrity, and its
+provenance. The workflow therefore polls boundedly after a successful publish;
+it still invokes `npm publish` exactly once. A workflow failure after a publish
+attempt is a registry-read task, not authorization to republish.
+
+Because the original run ended in failure, issue #20 remains open. After merging
+the read-back fix, manually run **Verify published 0.1.0 recovery** from `main`
+and approve its `npm-production` job. It checks the immutable `v0.1.0` source,
+registry integrity, `next`, and provenance source identity without a token,
+`npm publish`, or a dist-tag mutation. Close #20 only after that recovery run
+succeeds and its URL is recorded.
+
 ## Separated acceptance and finalization
 
 After `next` exists, issue #21 installs `openyapi-cli@0.1.0` from the public
@@ -49,6 +63,12 @@ Trusted Publishing for this exact repository/workflow, revoke and remove the
 one-time token, move the already-published `0.1.0` artifact to `latest`, and
 create the GitHub Release from the matching changelog entry. Do not rebuild or
 republish the tarball during promotion.
+
+For this first package the registry currently resolves both `next` and `latest`
+to `0.1.0`, despite the workflow requesting only `next` and containing no
+`npm dist-tag` command. Treat that as an observed state: do not blindly move or
+remove tags. Issue #22 must explicitly record the final intended dist-tag state
+before any authorized tag change.
 
 Record fixture, tarball, remote CI, registry, and real-instance results
 separately in [the Sprint 3 acceptance record](acceptance/sprint3.md). A failure

@@ -70,8 +70,8 @@
 - 版本与变更记录；真实 repository/bugs/homepage 元数据；发布账号和包名检查。
 - 发布 npm 后在新目录从 registry 安装，再验收版本和核心命令。
 
-实现状态（2026-09-16）：版本与 lockfile 已收敛为 `0.1.0`，补齐公开 npm 元数据、CHANGELOG、中英文 Quick Start/命令与兼容说明；真实 tarball 门禁覆盖包内容、production-only 安装、CLI/config/fixture/失败契约。常规 CI 已扩展为 Linux、Windows、macOS × Node 22/24，并保留 Windows PowerShell 5.1/7 专项。另有只响应 `workflow_dispatch`、绑定 `npm-production` Environment、固定 `main`/`openyapi-cli@0.1.0`/`next` 的首发 workflow；它不响应 push、tag 或 release。
+实现状态（2026-09-16）：版本与 lockfile 已收敛为 `0.1.0`，补齐公开 npm 元数据、CHANGELOG、中英文 Quick Start/命令与兼容说明；真实 tarball 门禁覆盖包内容、production-only 安装、CLI/config/fixture/失败契约。常规 CI 已扩展为 Linux、Windows、macOS × Node 22/24，并保留 Windows PowerShell 5.1/7 专项。首发 workflow 只响应 `workflow_dispatch`、绑定 `npm-production` Environment、固定 `main`/`openyapi-cli@0.1.0`/`next`；首次发布及 public-registry 独立验收已完成。publish 后即时回读曾受 registry 传播延迟影响，现改为有界回读轮询且不重发版本。
 
-发布步骤：先完成本地门禁和 exact candidate SHA 的完整远程矩阵。之后只有 Issue #20 的明确人工授权可配置一次性最小权限凭据、创建 `v0.1.0` annotated tag，并审批首次 publish 到 `next`。Issue #21 从 public registry 独立验收；Issue #22 再完成人工真实实例只读验收、Trusted Publishing、撤销一次性 token、推进 `latest` 与创建 GitHub Release。当前实现不执行这些外部动作。
+发布步骤：`v0.1.0` tag、首次 publish 与 provenance 已发生，#21 已从 public registry 独立验收；但 #20 的原 workflow 因即时 registry 传播延迟结束为 failure，故本票仍未完成。必须先从 `main` 手动运行受 `npm-production` 保护的只读 recovery workflow，验证 tag/source、tarball integrity、`next` 与 provenance，成功后才可关闭 #20。公开 registry 当前同时返回 `next/latest=0.1.0`，而 workflow 未执行 dist-tag 操作，因此 #22 需要人工确认并记录该实际状态后再处理 Trusted Publishing、一次性 token 撤销、真实实例只读验收与 GitHub Release；不得重建或重发 tarball。
 
 完成标准：registry 可安装，文档样例可执行，兼容性与已知限制可查，生产安装无需本地 TypeScript 或源代码构建；各层证据状态见 [Sprint 3 验收记录](acceptance/sprint3.md)，任何未完成层保持 pending。

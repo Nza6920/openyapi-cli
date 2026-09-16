@@ -24,6 +24,7 @@ test('Chinese and English READMEs expose equivalent stable quick starts', () => 
     assert.match(document, /Node(?:\.js)? 24/);
     assert.match(document, /docs\/acceptance\/sprint3\.md/);
     assert.match(document, /docs\/releasing\.md/);
+    assert.match(document, /published publicly|已公开发布/);
     assert.doesNotMatch(document, /0\.1\.0-alpha\.0|stage.*sprint2/i);
   }
 });
@@ -42,6 +43,6 @@ test('release documentation keeps publication and acceptance as explicit human g
   assert.match(acceptance, /Linux.*passed remotely/i);
   assert.match(acceptance, /Windows.*passed remotely/i);
   assert.match(acceptance, /macOS.*passed remotely/i);
-  assert.match(acceptance, /registry.*pending/i);
+  assert.match(acceptance, /Public registry.*passed/i);
   assert.match(acceptance, /real YApi.*pending/i);
 });
