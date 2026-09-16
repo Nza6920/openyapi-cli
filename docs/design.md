@@ -93,7 +93,7 @@ YApi 文档使用项目 token：GET 放 query、POST 放 body；不默认转换�
 
 当前稳定版本 `0.1.0` 已公开发布。包内包含真实 repository/bugs/homepage、public access 元数据与 changelog；`npm run test:package` 对真实 tarball 的名称、版本、白名单、bin、生产依赖安装、配置/脱敏、fixture 请求和失败契约做检查。
 
-首发 workflow 只接受从默认 `main` 手动触发，固定包名 `openyapi-cli`、版本 `0.1.0` 和 dist-tag `next`，job 绑定 `npm-production` Environment，并要求 public access 与 provenance。首发 run 35060694115 的 `npm publish` 成功，随后即时 registry 回读遇到传播延迟而误报失败；workflow 现以有界轮询处理该状态，且从不重发版本。由于原 run 仍为 failure，Issue #20 不得关闭，必须通过同一 Environment 的只读 `Verify published 0.1.0 recovery` workflow 验证固定 tag/source、tarball integrity、`next` 和 provenance。公开 registry 当前同时读回 `next/latest=0.1.0`，尽管 workflow 没有 `npm dist-tag` 命令；该状态需在 Issue #22 人工收尾中记录并决定是否需要调整。一次性 token、Trusted Publishing、真实实例验收和 GitHub Release 仍受 [发布手册](releasing.md) 与 Issue #22 的人工门禁约束。
+首发 workflow 只接受从默认 `main` 手动触发，固定包名 `openyapi-cli`、版本 `0.1.0` 和 dist-tag `next`，job 绑定 `npm-production` Environment，并要求 public access 与 provenance。首发 run 35060694115 的 `npm publish` 成功，随后即时 registry 回读遇到传播延迟而误报失败；workflow 现以有界轮询处理该状态，且从不重发版本。同一 Environment 审批的只读 recovery run 35061977777 验证固定 tag/source、tarball integrity、`next` 和 provenance 全部通过，Issue #20 已关闭。公开 registry 当前同时读回 `next/latest=0.1.0`，尽管 workflow 没有 `npm dist-tag` 命令；该状态需在 Issue #22 人工收尾中记录并决定是否需要调整。一次性 token、Trusted Publishing、真实实例验收和 GitHub Release 仍受 [发布手册](releasing.md) 与 Issue #22 的人工门禁约束。
 
 ## 核对来源
 

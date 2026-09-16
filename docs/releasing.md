@@ -43,12 +43,12 @@ provenance. The workflow therefore polls boundedly after a successful publish;
 it still invokes `npm publish` exactly once. A workflow failure after a publish
 attempt is a registry-read task, not authorization to republish.
 
-Because the original run ended in failure, issue #20 remains open. After merging
-the read-back fix, manually run **Verify published 0.1.0 recovery** from `main`
-and approve its `npm-production` job. It checks the immutable `v0.1.0` source,
-registry integrity, `next`, and provenance source identity without a token,
-`npm publish`, or a dist-tag mutation. Close #20 only after that recovery run
-succeeds and its URL is recorded.
+Because the original run ended in failure, the maintainer approved and ran
+**Verify published 0.1.0 recovery** from `main`. Its protected job passed in
+[run 35061977777](https://github.com/Nza6920/openyapi-cli/actions/runs/35061977777).
+It checked the immutable `v0.1.0` source, registry integrity, `next`, and
+provenance source identity without a token, `npm publish`, or a dist-tag
+mutation. Issue #20 was closed after that run and its URL were recorded.
 
 ## Separated acceptance and finalization
 

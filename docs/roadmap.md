@@ -72,6 +72,6 @@
 
 实现状态（2026-09-16）：版本与 lockfile 已收敛为 `0.1.0`，补齐公开 npm 元数据、CHANGELOG、中英文 Quick Start/命令与兼容说明；真实 tarball 门禁覆盖包内容、production-only 安装、CLI/config/fixture/失败契约。常规 CI 已扩展为 Linux、Windows、macOS × Node 22/24，并保留 Windows PowerShell 5.1/7 专项。首发 workflow 只响应 `workflow_dispatch`、绑定 `npm-production` Environment、固定 `main`/`openyapi-cli@0.1.0`/`next`；首次发布及 public-registry 独立验收已完成。publish 后即时回读曾受 registry 传播延迟影响，现改为有界回读轮询且不重发版本。
 
-发布步骤：`v0.1.0` tag、首次 publish 与 provenance 已发生，#21 已从 public registry 独立验收；但 #20 的原 workflow 因即时 registry 传播延迟结束为 failure，故本票仍未完成。必须先从 `main` 手动运行受 `npm-production` 保护的只读 recovery workflow，验证 tag/source、tarball integrity、`next` 与 provenance，成功后才可关闭 #20。公开 registry 当前同时返回 `next/latest=0.1.0`，而 workflow 未执行 dist-tag 操作，因此 #22 需要人工确认并记录该实际状态后再处理 Trusted Publishing、一次性 token 撤销、真实实例只读验收与 GitHub Release；不得重建或重发 tarball。
+发布步骤：`v0.1.0` tag、首次 publish 与 provenance 已发生，#21 已从 public registry 独立验收。#20 的原 workflow 因即时 registry 传播延迟结束为 failure；经 `npm-production` 审批的只读 recovery run 35061977777 验证 tag/source、tarball integrity、`next` 与 provenance 后通过，#20 已关闭。公开 registry 当前同时返回 `next/latest=0.1.0`，而 workflow 未执行 dist-tag 操作，因此 #22 需要人工确认并记录该实际状态后再处理 Trusted Publishing、一次性 token 撤销、真实实例只读验收与 GitHub Release；不得重建或重发 tarball。
 
 完成标准：registry 可安装，文档样例可执行，兼容性与已知限制可查，生产安装无需本地 TypeScript 或源代码构建；各层证据状态见 [Sprint 3 验收记录](acceptance/sprint3.md)，任何未完成层保持 pending。
