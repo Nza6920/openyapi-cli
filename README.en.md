@@ -12,7 +12,7 @@ A YApi OpenAPI command-line client for developers, AI agents, and CI. It covers 
 - Minimum runtime: Node 22
 - Verified runtime matrix: Node 22 and Node 24; `engines.node >=22` does not claim that every future Node major has been tested
 
-`0.1.0` is published publicly and can be installed from npm. The current registry read-back resolves both `next` and `latest` to `0.1.0`; the GitHub Release and real YApi read-only acceptance remain incomplete. See the [Sprint 3 acceptance record](docs/acceptance/sprint3.md) for layered status.
+`0.1.0` is published publicly and can be installed from npm. The [GitHub Release `v0.1.0`](https://github.com/Nza6920/openyapi-cli/releases/tag/v0.1.0) is available. The public registry resolves both `next` and `latest` to the same `0.1.0` package, and real YApi read-only acceptance is complete. See the [Sprint 3 acceptance record](docs/acceptance/sprint3.md) for layered evidence.
 
 ## Quick Start
 

@@ -70,6 +70,22 @@ to `0.1.0`, despite the workflow requesting only `next` and containing no
 remove tags. Issue #22 must explicitly record the final intended dist-tag state
 before any authorized tag change.
 
+Issue #22 confirmed that `next` and `latest` already pointed to the same
+`0.1.0` artifact, so no dist-tag mutation or republish was needed. The
+registry-installed CLI passed read-only checks against the approved YApi
+instance. The maintainer confirmed the exact Trusted Publisher settings and
+revoked the one-time npm token; `npm token list --json` then returned an empty
+list. The `npm-production` Environment secret was deleted and read back as
+absent. The existing annotated `v0.1.0` tag was used to create the
+[GitHub Release](https://github.com/Nza6920/openyapi-cli/releases/tag/v0.1.0).
+Afterward, a clean untagged registry install again resolved to `0.1.0` with
+the original tarball integrity. The npm CLI could not independently read the
+Trusted Publisher entry without an interactive 2FA challenge, so the saved
+settings are maintainer-confirmed; the full evidence boundary is recorded in
+[the Sprint 3 acceptance record](acceptance/sprint3.md). The one-time release
+workflow remains fixed to `0.1.0` and its removed token. A future version
+needs a separate OIDC-based publish workflow.
+
 Record fixture, tarball, remote CI, registry, and real-instance results
 separately in [the Sprint 3 acceptance record](acceptance/sprint3.md). A failure
 in one layer stops later gates; a public defect is fixed forward as `0.1.1`
