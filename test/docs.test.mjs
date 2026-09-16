@@ -39,8 +39,9 @@ test('release documentation keeps publication and acceptance as explicit human g
   assert.match(release, /latest/);
 
   const acceptance = read('docs/acceptance/sprint3.md');
-  assert.match(acceptance, /Linux.*pending/i);
-  assert.match(acceptance, /macOS.*pending/i);
+  assert.match(acceptance, /Linux.*passed remotely/i);
+  assert.match(acceptance, /Windows.*passed remotely/i);
+  assert.match(acceptance, /macOS.*passed remotely/i);
   assert.match(acceptance, /registry.*pending/i);
   assert.match(acceptance, /real YApi.*pending/i);
 });

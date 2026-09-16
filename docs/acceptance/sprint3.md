@@ -11,9 +11,9 @@ does not prove compatibility with a deployed YApi instance.
 | --- | --- | --- | --- |
 | Local fixture | Node 24.13.1 | passed locally (2026-09-16) | `npm run check`: 62/62 tests, 0 skipped; includes typecheck and compiled CLI tests. |
 | Real local tarball | Node 24.13.1 | passed locally (2026-09-16) | `npm run test:package`: `openyapi-cli-0.1.0.tgz`, 30 files, production-only isolated install. `npm pack --json --dry-run` confirmed name/version/files with an isolated writable cache. |
-| Linux CI | Node 22 and Node 24 | pending | Both jobs must pass on the exact release SHA. |
-| Windows CI | Node 22 and Node 24 | pending | Both jobs plus PowerShell 5.1/7 checks must pass on the exact release SHA. |
-| macOS CI | Node 22 and Node 24 | pending | Both jobs must pass on the exact release SHA. |
+| Linux CI | Node 22 and Node 24 | passed remotely (2026-09-16) | Both jobs passed `check` and `test:package` for SHA `c07a387` in [run 35058593062](https://github.com/Nza6920/openyapi-cli/actions/runs/35058593062). |
+| Windows CI | Node 22 and Node 24 | passed remotely (2026-09-16) | Both jobs passed `check`, `test:package`, PowerShell 5.1, and PowerShell 7 for SHA `c07a387` in run 35058593062. |
+| macOS CI | Node 22 and Node 24 | passed remotely (2026-09-16) | Both jobs passed `check` and `test:package` for SHA `c07a387` in run 35058593062. |
 | Public registry | `openyapi-cli@0.1.0` under `next` | pending | Requires authorized issue #20, then a clean registry installation under issue #21. |
 | real YApi | approved read-only instance | pending | Requires the registry-installed binary and authorized issue #22. |
 
