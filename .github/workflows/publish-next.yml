@@ -1,0 +1,116 @@
+name: Publish 0.1.0 to npm next
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  EXPECTED_NAME: openyapi-cli
+  EXPECTED_VERSION: 0.1.0
+  EXPECTED_TAG: next
+  EXPECTED_REGISTRY: https://registry.npmjs.org/
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: npm-production
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: ${{ env.EXPECTED_REGISTRY }}
+
+      - name: Verify exact source and fixed release metadata
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const packageJson = JSON.parse(readFileSync("package.json", "utf8"));
+            const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+            const expectedName = process.env.EXPECTED_NAME;
+            const expectedVersion = process.env.EXPECTED_VERSION;
+            if (packageJson.name !== expectedName || packageJson.version !== expectedVersion) process.exit(1);
+            if (lock.name !== expectedName || lock.version !== expectedVersion) process.exit(1);
+            if (lock.packages?.[""]?.name !== expectedName || lock.packages?.[""]?.version !== expectedVersion) process.exit(1);
+            if (packageJson.publishConfig?.access !== "public") process.exit(1);
+            if (packageJson.publishConfig?.registry !== process.env.EXPECTED_REGISTRY) process.exit(1);
+          '
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test:package
+
+      - name: Inspect the release tarball
+        run: |
+          set -euo pipefail
+          pack_json="$(npm pack --json --pack-destination "$RUNNER_TEMP")"
+          PACK_JSON="$pack_json" node --input-type=module -e '
+            const [packed] = JSON.parse(process.env.PACK_JSON);
+            if (packed?.name !== process.env.EXPECTED_NAME) process.exit(1);
+            if (packed?.version !== process.env.EXPECTED_VERSION) process.exit(1);
+            if (!packed.files?.some(({ path }) => path === "dist/main.js")) process.exit(1);
+          '
+
+      - name: Confirm npm identity and unpublished target
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          npm whoami --registry="$EXPECTED_REGISTRY" >/dev/null
+          set +e
+          view_output="$(npm view "$EXPECTED_NAME@$EXPECTED_VERSION" version --registry="$EXPECTED_REGISTRY" 2>&1)"
+          view_status=$?
+          set -e
+          if [ "$view_status" -eq 0 ]; then
+            echo "::error::$EXPECTED_NAME@$EXPECTED_VERSION already exists; refusing to publish."
+            exit 1
+          fi
+          if [[ "$view_output" != *"E404"* && "$view_output" != *"404 Not Found"* ]]; then
+            echo "::error::Could not prove that the target version is unpublished."
+            exit 1
+          fi
+
+      - name: Publish once and read back registry state
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          set +e
+          npm publish --access public --provenance --tag "$EXPECTED_TAG"
+          publish_status=$?
+          set -e
+
+          set +e
+          registry_version="$(npm view "$EXPECTED_NAME@$EXPECTED_VERSION" version --registry="$EXPECTED_REGISTRY" 2>/dev/null)"
+          read_status=$?
+          registry_tag="$(npm view "$EXPECTED_NAME" "dist-tags.$EXPECTED_TAG" --registry="$EXPECTED_REGISTRY" 2>/dev/null)"
+          tag_status=$?
+          set -e
+
+          if [ "$publish_status" -ne 0 ]; then
+            if [ "$read_status" -eq 0 ] && [ "$registry_version" = "$EXPECTED_VERSION" ]; then
+              echo "::error::Publish reported failure, but the version now exists. Treating the result as unknown; do not retry."
+            else
+              echo "::error::Publish failed and the target version was not confirmed. Do not retry without a fresh registry read."
+            fi
+            exit 1
+          fi
+          if [ "$read_status" -ne 0 ] || [ "$registry_version" != "$EXPECTED_VERSION" ]; then
+            echo "::error::Publish returned success, but the exact version could not be read back."
+            exit 1
+          fi
+          if [ "$tag_status" -ne 0 ] || [ "$registry_tag" != "$EXPECTED_VERSION" ]; then
+            echo "::error::The next dist-tag does not resolve to the published version."
+            exit 1
+          fi

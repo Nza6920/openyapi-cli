@@ -1,14 +1,14 @@
 # 技术选型与行为约定
 
-状态：2026-09-13；迭代 2 的全部端点已实现并完成本地 fixture 与隔离安装包验证。用户已确认迭代 1 真实实例验收通过；迭代 2 真实实例、Windows 执行与远程 CI 结果待单独记录。
+状态：2026-09-16；迭代 2 的全部端点及分层验收已完成。迭代 3 已形成 `0.1.0` 发布候选、三平台 CI 和受保护的手动首发 workflow；远程 release-candidate CI、registry 与真实实例首发验收仍按门禁分别记录。
 
 ## 已确认的产品边界
 
-- 独立 npm CLI，只覆盖指定 OpenAPI 页面的 11 个端点。
+- 独立 npm CLI，只覆盖指定 OpenAPI 页面的 11 个端点；`0.1.0` 不新增端点。
 - 同时服务终端开发者、AI Agent 和 CI，默认非交互执行。
 - 官方 YMFE/yapi 为基线，再用实际部署实例验收，不承诺各类 fork。
-- 单 npm 包 `openyapi-cli`，可执行命令 `openyapi`，MIT 许可证。
-- 迭代 1 实现六个只读端点；迭代 2 实现五个写入/导入端点。npm 发布仍不在本迭代范围。
+- 单 npm 包 `openyapi-cli`，可执行命令 `openyapi`，MIT 许可证，首个稳定版本契约为 `0.1.0`。
+- 迭代 1 实现六个只读端点；迭代 2 实现五个写入/导入端点；迭代 3 只做发布加固与分层验收。
 
 ## 技术选型
 
@@ -21,7 +21,7 @@
 | npm + package-lock.json | 可复现安装，直接对接目标发布渠道 |
 | tsc | 编译到 dist，无打包器、开发运行器或 monorepo 编排工具 |
 | node:test + node:assert | 通过真实 CLI 子进程验证 stdout、stderr 与退出码 |
-| GitHub Actions | 22/24 上执行 check 和安装包验收；工作流仅检查，不自动发布 |
+| GitHub Actions | Linux、Windows、macOS 的 22/24 CI；首发另用仅 `workflow_dispatch`、受 `npm-production` 审批保护的固定目标 workflow |
 
 依赖版本由 package.json 范围与 package-lock.json 实际解析版本共同记录，不在文档维护第二套版本号。
 
@@ -91,7 +91,9 @@ YApi 文档使用项目 token：GET 放 query、POST 放 body；不默认转换�
 
 `bin` 指向 dist/main.js，文件包含 Node.js shebang；`prepack` 构建产物；files 白名单包含 dist、docs、英文 README，以及 npm 自动包含的包元数据、简体中文 README、LICENSE。生产安装不需要 TypeScript，也不运行构建脚本。
 
-当前版本 0.1.0-alpha.0 标识骨架。后续发布前需完成业务验收、补充真实 repository/bugs/homepage 元数据、确认 npm 名称和维护者账号，按 roadmap 完成打包验收。尚未设置 npm 凭据或自动发布工作流。
+当前版本为稳定契约 `0.1.0`，但尚未公开发布。包内包含真实 repository/bugs/homepage、public access 元数据与 changelog；`npm run test:package` 对真实 tarball 的名称、版本、白名单、bin、生产依赖安装、配置/脱敏、fixture 请求和失败契约做检查。
+
+首发 workflow 只接受从默认 `main` 手动触发，固定包名 `openyapi-cli`、版本 `0.1.0` 和 dist-tag `next`，job 绑定 `npm-production` Environment，并要求 public access 与 provenance。实现 workflow 不代表授权发布；一次性 token、annotated tag、实际 publish、registry 验收、Trusted Publishing、`latest` 推进和 GitHub Release 分别受 [发布手册](releasing.md) 与 Issue #20/#22 的人工门禁约束。发布传输结果不明确时先回读 registry，不自动重试或常规 unpublish。
 
 ## 核对来源
 
@@ -101,4 +103,7 @@ YApi 文档使用项目 token：GET 放 query、POST 放 body；不默认转换�
 - [Node.js 支持周期](https://github.com/nodejs/Release/blob/main/schedule.json)：运行时支持基线。
 - [npm package.json](https://docs.npmjs.com/cli/v11/configuring-npm/package-json)：bin 与 files。
 - [npm 生命周期](https://docs.npmjs.com/cli/v11/using-npm/scripts)：prepack 与发布检查。
-- [setup-node](https://github.com/actions/setup-node/tree/v4)：CI 版本矩阵与 npm 缓存配置。
+- [setup-node](https://github.com/actions/setup-node)：CI 版本矩阵与 npm 缓存配置。
+- [GitHub Actions 手动 workflow](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#workflow_dispatch)：默认分支上的 `workflow_dispatch`。
+- [GitHub Environment](https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/deploy-to-environment)：受保护发布 job 的 Environment 绑定。
+- [npm provenance](https://docs.npmjs.com/generating-provenance-statements)：发布来源证明。

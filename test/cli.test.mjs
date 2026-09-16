@@ -18,6 +18,7 @@ test('help and no arguments exit successfully without diagnostics', () => {
 });
 
 test('version comes from package metadata', () => {
+  assert.equal(version, '0.1.0');
   const result = invoke('--version');
   assert.equal(result.status, 0);
   assert.equal(result.stdout, `${version}\n`);
@@ -27,7 +28,7 @@ test('version comes from package metadata', () => {
 test('info emits a single JSON value by default', () => {
   const result = invoke('info');
   assert.equal(result.status, 0);
-  assert.deepEqual(JSON.parse(result.stdout), { name: 'openyapi-cli', version, stage: 'sprint2' });
+  assert.deepEqual(JSON.parse(result.stdout), { name: 'openyapi-cli', version: '0.1.0' });
   assert.equal(result.stderr, '');
 });
 

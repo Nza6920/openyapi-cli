@@ -70,6 +70,8 @@
 - 版本与变更记录；真实 repository/bugs/homepage 元数据；发布账号和包名检查。
 - 发布 npm 后在新目录从 registry 安装，再验收版本和核心命令。
 
-发布步骤：先完成所有本地/CI 验收和包内容检查，确认发布目标、版本及授权后执行 npm publish。当前任务不发布、不配置发布凭据，也不创建自动发布工作流。
+实现状态（2026-09-16）：版本与 lockfile 已收敛为 `0.1.0`，补齐公开 npm 元数据、CHANGELOG、中英文 Quick Start/命令与兼容说明；真实 tarball 门禁覆盖包内容、production-only 安装、CLI/config/fixture/失败契约。常规 CI 已扩展为 Linux、Windows、macOS × Node 22/24，并保留 Windows PowerShell 5.1/7 专项。另有只响应 `workflow_dispatch`、绑定 `npm-production` Environment、固定 `main`/`openyapi-cli@0.1.0`/`next` 的首发 workflow；它不响应 push、tag 或 release。
 
-完成标准：registry 可安装，文档样例可执行，兼容性与已知限制可查，生产安装无需本地 TypeScript 或源代码构建。
+发布步骤：先完成本地门禁和 exact candidate SHA 的完整远程矩阵。之后只有 Issue #20 的明确人工授权可配置一次性最小权限凭据、创建 `v0.1.0` annotated tag，并审批首次 publish 到 `next`。Issue #21 从 public registry 独立验收；Issue #22 再完成人工真实实例只读验收、Trusted Publishing、撤销一次性 token、推进 `latest` 与创建 GitHub Release。当前实现不执行这些外部动作。
+
+完成标准：registry 可安装，文档样例可执行，兼容性与已知限制可查，生产安装无需本地 TypeScript 或源代码构建；各层证据状态见 [Sprint 3 验收记录](acceptance/sprint3.md)，任何未完成层保持 pending。

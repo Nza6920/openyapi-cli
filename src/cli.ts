@@ -80,7 +80,7 @@ export async function run(
     .description('Show local CLI metadata; does not connect to YApi.')
     .action((_options, command) => {
       writeResult(
-        { name: 'openyapi-cli', version, stage: 'sprint2' },
+        { name: 'openyapi-cli', version },
         outputFormat(command),
         streams.stdout,
       );

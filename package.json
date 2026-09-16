@@ -1,8 +1,20 @@
 {
   "name": "openyapi-cli",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0",
   "description": "A scriptable CLI client for the official YApi OpenAPI",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nza6920/openyapi-cli.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Nza6920/openyapi-cli/issues"
+  },
+  "homepage": "https://github.com/Nza6920/openyapi-cli#readme",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "type": "module",
   "bin": {
     "openyapi": "dist/main.js"
@@ -10,6 +22,7 @@
   "files": [
     "dist",
     "docs",
+    "CHANGELOG.md",
     "README.en.md"
   ],
   "engines": {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -59,17 +59,35 @@ try {
   ));
   const packed = Array.isArray(packOutput) ? packOutput[0] : Object.values(packOutput)[0];
   assert.ok(packed, 'npm pack did not return package metadata');
+  assert.equal(packed.name, 'openyapi-cli');
+  assert.equal(packed.version, '0.1.0');
   const files = packed.files.map(({ path }) => path);
   assert.ok(files.includes('dist/main.js'));
   assert.ok(files.includes('LICENSE'));
   assert.ok(files.includes('README.md'));
   assert.ok(files.includes('README.en.md'));
-  assert.ok(files.every((path) => /^(dist\/|docs\/|package\.json$|README(?:\.en)?\.md$|LICENSE$)/.test(path)), files.join('\n'));
+  assert.ok(files.includes('CHANGELOG.md'));
+  assert.ok(files.every((path) => /^(dist\/|docs\/|package\.json$|README(?:\.en)?\.md$|CHANGELOG\.md$|LICENSE$)/.test(path)), files.join('\n'));
   execute(process.execPath, [npmCli, 'install', '--prefix', staging, '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', join(staging, packed.filename)], staging);
   const installed = join(staging, 'node_modules', 'openyapi-cli');
   const entry = join(installed, metadata.bin.openyapi);
+  const installedMetadata = JSON.parse(readFileSync(join(installed, 'package.json'), 'utf8'));
+  assert.equal(installedMetadata.name, 'openyapi-cli');
+  assert.equal(installedMetadata.version, '0.1.0');
+  assert.deepEqual(installedMetadata.bin, { openyapi: 'dist/main.js' });
+  assert.deepEqual(installedMetadata.publishConfig, {
+    access: 'public',
+    registry: 'https://registry.npmjs.org/',
+  });
+  assert.equal(existsSync(join(installed, 'src')), false);
+  assert.equal(existsSync(join(installed, 'test')), false);
+  assert.equal(existsSync(join(staging, 'node_modules', 'typescript')), false);
   assert.equal(execute(process.execPath, [entry, '--version'], staging), `${metadata.version}\n`);
-  assert.equal(JSON.parse(execute(process.execPath, [entry, 'info'], staging)).stage, 'sprint2');
+  assert.deepEqual(JSON.parse(execute(process.execPath, [entry, 'info'], staging)), {
+    name: 'openyapi-cli',
+    version: '0.1.0',
+  });
+  assert.match(execute(process.execPath, [entry, '--help'], staging), /Usage: openyapi/);
   const configHome = join(staging, 'config');
   const cleanEnvironment = {
     XDG_CONFIG_HOME: configHome,
@@ -97,6 +115,10 @@ try {
   });
   assert.equal(JSON.parse(shown).token, 'configured');
   assert.doesNotMatch(shown, /package-secret/);
+  const listed = execute(process.execPath, [entry, 'config', 'list'], staging, {
+    env: cleanEnvironment,
+  });
+  assert.deepEqual(JSON.parse(listed).data.map(({ name }) => name), ['packaged']);
 
   const requests = [];
   const fixture = createServer(async (request, response) => {
@@ -200,6 +222,16 @@ try {
   assert.equal(executionFailure.status, 1);
   assert.equal(executionFailure.stdout, '');
   assert.equal(JSON.parse(executionFailure.stderr).error.code, 'CONFIG_ERROR');
+  assert.deepEqual(JSON.parse(execute(process.execPath, [
+    entry, 'config', 'token', 'unset', 'packaged',
+  ], staging, { env: cleanEnvironment })), {
+    profile: 'packaged', token: 'missing', removed: true,
+  });
+  assert.deepEqual(JSON.parse(execute(process.execPath, [
+    entry, 'config', 'delete', 'packaged',
+  ], staging, { env: cleanEnvironment })), {
+    profile: 'packaged', deleted: true,
+  });
   if (process.platform !== 'win32') {
     const bin = join(dirname(installed), '.bin', 'openyapi');
     assert.equal(execute(bin, ['--version'], staging), `${metadata.version}\n`);

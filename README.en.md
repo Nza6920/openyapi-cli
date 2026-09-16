@@ -2,64 +2,77 @@
 
 [简体中文](README.md) | **English**
 
-A YApi OpenAPI command-line client for developers, AI agents, and CI.
+A YApi OpenAPI command-line client for developers, AI agents, and CI. It covers the agreed six read endpoints and five write/import endpoints, emits stable JSON by default, and makes write safety boundaries explicit.
 
-Sprint 2 configuration, all six read endpoints, and all five write/import endpoints are implemented and separately covered by local HTTP fixtures, isolated real-tarball tests, Windows/remote CI, and dedicated-project write/read-back acceptance. This remains the unpublished `0.1.0-alpha.0`.
+## Version information
 
-## Getting started locally
+- Stable version contract: `0.1.0`
+- npm package: `openyapi-cli`
+- Executable: `openyapi`
+- Minimum runtime: Node 22
+- Verified runtime matrix: Node 22 and Node 24; `engines.node >=22` does not claim that every future Node major has been tested
 
-Requires Node.js >=22. Development defaults to Node 24; CI is configured for Node 22 and 24.
+`0.1.0` is still a release candidate and has not been published publicly. See the [Sprint 3 acceptance record](docs/acceptance/sprint3.md) for registry, `next`/`latest`, and GitHub Release status.
+
+## Quick Start
+
+The registry commands below become available after the first public `0.1.0` publication:
 
 ```sh
-npm ci
-npm run build
-node dist/main.js --help
-node dist/main.js info
+npm install --global openyapi-cli@0.1.0
+openyapi --version
+openyapi info
+
+npx --package openyapi-cli@0.1.0 openyapi --version
 ```
 
-## Configuration and authentication
-
-Create a profile, then explicitly store its token through stdin:
+Create a profile, store its token through stdin, and run a read-only query:
 
 ```sh
-node dist/main.js config set default \
+openyapi config set default \
   --base-url https://yapi.example.com \
   --project-id 123
-printf '%s\n' "$YAPI_TOKEN" | node dist/main.js config token set default --stdin
-
-node dist/main.js config show default
-node dist/main.js config list
-node dist/main.js config token unset default
-node dist/main.js config delete default
+printf '%s\n' "$YAPI_TOKEN" | openyapi config token set default --stdin
+openyapi project get --profile default
 ```
 
-Profile and token commands never print the token, and `config set` preserves a stored token. The authoritative [configuration contract](docs/design.md#配置与认证迭代-1-实现) documents OS-specific paths, Unix permissions, and precedence. CI can use `OPENYAPI_BASE_URL`, `OPENYAPI_PROJECT_ID`, and `OPENYAPI_TOKEN` without a profile file. There is no persistent active profile and no token command-line option.
+The URL and project ID are placeholders. Never put a token in command arguments, a repository, or logs.
 
-## Query commands
+## Command reference
 
-```sh
-node dist/main.js project get [--profile NAME]
-node dist/main.js category list [--profile NAME]
-node dist/main.js interface get --id ID [--profile NAME]
-node dist/main.js interface list [--category-id ID] [--page PAGE] [--limit LIMIT]
-node dist/main.js interface list [--category-id ID] --all [--limit LIMIT]
-node dist/main.js interface tree [--profile NAME]
+Global options are `--format json|table` (default `json`) and `--version`. Remote options such as `--profile`, `--base-url`, `--project-id`, and `--timeout-ms` follow the relevant subcommand.
+
+| Area | Commands |
+| --- | --- |
+| Local metadata | `openyapi info` |
+| Profiles | `config set/show/list/delete` |
+| Tokens | `config token set --stdin`, `config token unset` |
+| Reads | `project get`, `category list`, `interface get/list/tree` |
+| Writes | `category create`, `interface create/save/update` |
+| Imports | `import --file|--stdin|--url --type TYPE [--merge normal|good|merge]` |
+
+Interface lists default to `--page 1 --limit 10`. `--all` validates totals, page counts, and duplicate IDs before emitting one complete result. See the [API scope](docs/api-scope.md) for the exact mapping to all 11 YApi endpoints.
+
+## Configuration, output, and errors
+
+Non-secret configuration precedence is command option, then environment variable, then profile. Select a profile with `--profile` or `OPENYAPI_PROFILE`. CI normally uses `OPENYAPI_BASE_URL`, `OPENYAPI_PROJECT_ID`, and `OPENYAPI_TOKEN` without storing a token on disk.
+
+An explicit `XDG_CONFIG_HOME` wins. Otherwise Linux uses `~/.config`, Windows uses `APPDATA`, and macOS uses `~/Library/Application Support`. Local token storage is an explicit stdin-only action; `show` and `list` never expose it, and current-token values are recursively redacted from business output and errors. The [configuration and authentication contract](docs/design.md#配置与认证迭代-1-实现) is authoritative.
+
+Success writes one JSON value to stdout; `--format table` provides a human summary. Failure leaves stdout empty and writes stable JSON to stderr:
+
+```json
+{"error":{"code":"CONFIG_ERROR","message":"Missing token configuration."}}
 ```
 
-Queries also accept `--base-url`, `--project-id`, and `--timeout-ms`; each request defaults to 30000ms. Only `interface get` and category-filtered `interface list` can run without a project ID. When a project ID is configured, the client first calls `project get` to verify the token's project identity and stops before the target query on a mismatch.
+Usage errors exit 2, execution failures exit 1, and success exits 0. Stable `error.code` values are `USAGE_ERROR`, `CONFIG_ERROR`, `PROJECT_MISMATCH`, `NETWORK_ERROR`, `TIMEOUT_ERROR`, `HTTP_ERROR`, `YAPI_ERROR`, `RESPONSE_ERROR`, and `INTERNAL_ERROR`; see the authoritative [output and exit-code contract](docs/design.md#输出与退出码).
 
-The default output is one JSON value; `--format table` gives concise summaries, while JSON retains full schemas. See the authoritative [output contract](docs/design.md#输出与退出码) and [query/pagination contract](docs/design.md#配置与认证迭代-1-实现) for response shapes, defaults, full-read validation, and concurrency limits.
+## Writes, imports, and safety boundaries
 
-## Errors and exit codes
-
-Failures leave stdout empty and write structured JSON to stderr. The authoritative [error contract](docs/design.md#输出与退出码) defines stable codes, exit statuses, redirects, retries, and credential redaction.
-
-## Writes and imports
-
-JSON write commands require exactly one of `--file` and `--stdin`; import requires exactly one of `--file`, `--stdin`, and `--url`. File and stdin input support UTF-8 with or without a BOM and BOM-marked UTF-16LE.
+JSON writes require exactly one of `--file` and `--stdin`; imports require exactly one of `--file`, `--stdin`, and `--url`. Local input supports UTF-8 with or without a BOM and BOM-marked UTF-16LE.
 
 ```sh
-openyapi category create --file "./inputs/Chinese category.json"
+openyapi category create --file "./inputs/category.json"
 openyapi interface create --file interface.json
 openyapi interface save --stdin < interface.json
 openyapi interface update --file update.json
@@ -68,43 +81,27 @@ openyapi import --url https://internal.example/openapi.json --type swagger --mer
 openyapi import --file openapi.json --type swagger --merge merge --allow-overwrite
 ```
 
-Category create requires `name`. Interface create/save require `title`, `path`, `method`, and `catid`, and reject `id`. Interface update requires `id` and passes through only the supplied business fields. A top-level `token` is rejected and a supplied `project_id` must match configuration; fields inside an imported document are document data, not credential overrides. Every write verifies the configured project first, and update also verifies target ownership. POST requests are never retried; after a timeout or disconnection, the write result is unknown.
+Every write verifies the project first, and update also verifies interface ownership. A top-level `token` is rejected, and an input `project_id` must match configuration. POST requests are never retried. A timeout or disconnection has an unknown result, so read server state before deciding what to do next. Merge mode requires `--allow-overwrite`, but does not mean that omitted interfaces are deleted.
 
-`--type` names a server import plugin (`swagger` in the examples), so support depends on the target YApi server. Merge mode does not delete every interface omitted from the input, and the CLI does not claim complete OpenAPI 3 compatibility.
+`--type` identifies a plugin on the target YApi server; the CLI cannot guarantee its availability. This release does not claim complete OpenAPI 3 support. See the [Sprint 2 acceptance record](docs/acceptance/sprint2.md) for PowerShell 5.1/7 UTF-8 stdin setup and fixed fixtures.
 
-For Windows PowerShell 5.1, explicitly configure UTF-8 before piping text to a native command:
+## Compatibility and acceptance status
 
-```powershell
-$utf8 = New-Object System.Text.UTF8Encoding($false)
-[Console]::OutputEncoding = $utf8
-$OutputEncoding = $utf8
-Get-Content -Raw -Encoding UTF8 '.\inputs\Chinese api.json' | openyapi interface save --stdin
-```
+The contract baseline is official YMFE/yapi tag `v1.12.0`, commit `f856193ded851326a9aea19ff28d1c20c653bbab`; that tag's package version remains 1.11.0. The dedicated Sprint 2 deployment identified its frontend as `1.10.2`, and its Swagger plugin ignored `basePath`. Neither evidence layer establishes support for every YApi fork.
 
-For PowerShell 7:
+Linux, Windows, and macOS on Node 22/24, fixtures, the real tarball, the public registry, and a real YApi instance are separate evidence layers. The [Sprint 3 compatibility and acceptance record](docs/acceptance/sprint3.md) keeps incomplete layers marked `pending` instead of treating one passing layer as a substitute for another.
 
-```powershell
-$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new($false)
-Get-Content -Raw -Encoding utf8 '.\inputs\Chinese api.json' | openyapi interface save --stdin
-```
-
-These settings affect the current process and do not change machine execution policy. The CLI cannot recover characters the shell already lost. See the [Sprint 2 acceptance record](docs/acceptance/sprint2.md) for fixed inputs and separated evidence status.
-
-## Development and validation
+## Development, packaging, and release
 
 ```sh
+npm ci
 npm run check
 npm run test:package
+npm pack --json
 ```
 
-`check` runs type checking, the build, and compiled-CLI black-box tests. `test:package` creates a real tarball, installs runtime dependencies only in a temporary directory, and exercises all five write commands through the installed entry point.
+`check` type-checks, builds, and runs compiled-CLI black-box tests. `test:package` installs the real tarball with production dependencies only in a temporary directory, then verifies package contents, entry points, configuration/redaction, fixture requests, and failure contracts. The [release runbook](docs/releasing.md) covers the manual workflow, approval gate, unknown publish results, and post-publication steps. Implementing the workflow or passing local checks does not authorize publication.
 
-The source contract is pinned to official YMFE/yapi tag `v1.12.0`, commit `f856193ded851326a9aea19ff28d1c20c653bbab` (whose package version is still 1.11.0). Sprint 2 real writes were accepted on a dedicated instance whose frontend bundle identifies version 1.10.2; that deployment's `swagger` plugin ignores input `basePath`. See the [Sprint 2 acceptance record](docs/acceptance/sprint2.md) for separated source, instance, Windows, and CI evidence. The package has not been published to npm.
-
-## Scope and roadmap
-
-- [Technical choices and behavior contracts](docs/design.md) (Chinese)
-- [Mapping of the 11 endpoints to CLI commands](docs/api-scope.md) (Chinese)
-- [Sprint plan and acceptance criteria](docs/roadmap.md) (Chinese)
+More: [CHANGELOG](CHANGELOG.md) · [technical choices and behavior contracts](docs/design.md) · [roadmap](docs/roadmap.md)
 
 MIT License. This independent client is not affiliated with the official YApi project.
