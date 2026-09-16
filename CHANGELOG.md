@@ -25,8 +25,9 @@ First stable release candidate of the unscoped `openyapi-cli` package and the
 - Tokens are excluded from command-line options and recursively redacted from
   output. Merge imports require explicit `--allow-overwrite` authorization.
 - The real npm tarball is installed with production dependencies only and
-  exercised through its installed command entry point. Node 22 and 24 have
-  passed Linux and Windows CI; macOS release-candidate CI is a separate gate.
+  exercised through its installed command entry point. Sprint 2 passed Linux
+  and Windows CI on Node 22 and 24; the exact `0.1.0` release-candidate matrix
+  for Linux, Windows, and macOS remains a separate gate.
 
 ### Compatibility and known limits
 
