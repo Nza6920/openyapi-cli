@@ -44,5 +44,6 @@ test('release documentation keeps publication and acceptance as explicit human g
   assert.match(acceptance, /Windows.*passed remotely/i);
   assert.match(acceptance, /macOS.*passed remotely/i);
   assert.match(acceptance, /Public registry.*passed/i);
-  assert.match(acceptance, /real YApi.*pending/i);
+  assert.match(acceptance, /real YApi.*read-only CLI checks passed/i);
+  assert.match(acceptance, /frontend version `1\.10\.2`/i);
 });
