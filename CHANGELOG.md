@@ -2,6 +2,21 @@
 
 All notable changes to `openyapi-cli` are documented in this file.
 
+## 0.1.1 - 2026-09-17
+
+### Added
+
+- Bundle the `openyapi` Agent Skill in the npm package.
+- Add `openyapi install` (also `openyapi skill install`) to select project or user
+  scope and install the skill for Codex, OpenCode, or a general agent directory.
+- Support multi-agent selection, non-interactive flags, safe repeated installs,
+  and an optional durable global CLI install when launched through npx.
+
+### Release
+
+- Publish through a separate, protected GitHub Actions workflow using npm
+  Trusted Publishing (OIDC), without a long-lived npm token.
+
 ## 0.1.0 - 2026-09-16
 
 First stable release candidate of the unscoped `openyapi-cli` package and the

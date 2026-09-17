@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -60,20 +60,21 @@ try {
   const packed = Array.isArray(packOutput) ? packOutput[0] : Object.values(packOutput)[0];
   assert.ok(packed, 'npm pack did not return package metadata');
   assert.equal(packed.name, 'openyapi-cli');
-  assert.equal(packed.version, '0.1.0');
+  assert.equal(packed.version, '0.1.1');
   const files = packed.files.map(({ path }) => path);
   assert.ok(files.includes('dist/main.js'));
   assert.ok(files.includes('LICENSE'));
   assert.ok(files.includes('README.md'));
   assert.ok(files.includes('README.en.md'));
   assert.ok(files.includes('CHANGELOG.md'));
-  assert.ok(files.every((path) => /^(dist\/|docs\/|package\.json$|README(?:\.en)?\.md$|CHANGELOG\.md$|LICENSE$)/.test(path)), files.join('\n'));
+  assert.ok(files.includes('.agents/skills/openyapi/SKILL.md'));
+  assert.ok(files.every((path) => /^(\.agents\/skills\/openyapi\/SKILL\.md$|dist\/|docs\/|package\.json$|README(?:\.en)?\.md$|CHANGELOG\.md$|LICENSE$)/.test(path)), files.join('\n'));
   execute(process.execPath, [npmCli, 'install', '--prefix', staging, '--omit=dev', '--ignore-scripts', '--no-audit', '--no-fund', '--package-lock=false', join(staging, packed.filename)], staging);
   const installed = join(staging, 'node_modules', 'openyapi-cli');
   const entry = join(installed, metadata.bin.openyapi);
   const installedMetadata = JSON.parse(readFileSync(join(installed, 'package.json'), 'utf8'));
   assert.equal(installedMetadata.name, 'openyapi-cli');
-  assert.equal(installedMetadata.version, '0.1.0');
+  assert.equal(installedMetadata.version, '0.1.1');
   assert.deepEqual(installedMetadata.bin, { openyapi: 'dist/main.js' });
   assert.deepEqual(installedMetadata.publishConfig, {
     access: 'public',
@@ -81,13 +82,23 @@ try {
   });
   assert.equal(existsSync(join(installed, 'src')), false);
   assert.equal(existsSync(join(installed, 'test')), false);
+  assert.equal(readFileSync(join(installed, '.agents/skills/openyapi/SKILL.md'), 'utf8'),
+    readFileSync(join(root, '.agents/skills/openyapi/SKILL.md'), 'utf8'));
   assert.equal(existsSync(join(staging, 'node_modules', 'typescript')), false);
   assert.equal(execute(process.execPath, [entry, '--version'], staging), `${metadata.version}\n`);
   assert.deepEqual(JSON.parse(execute(process.execPath, [entry, 'info'], staging)), {
     name: 'openyapi-cli',
-    version: '0.1.0',
+    version: '0.1.1',
   });
   assert.match(execute(process.execPath, [entry, '--help'], staging), /Usage: openyapi/);
+  const skillTarget = join(staging, 'skill-target');
+  mkdirSync(skillTarget);
+  const skillResult = JSON.parse(execute(process.execPath, [
+    entry, 'install', '--agent', 'codex', '--scope', 'project', '--project-dir', skillTarget,
+  ], staging));
+  assert.equal(skillResult.results[0].status, 'installed');
+  assert.equal(readFileSync(join(skillTarget, '.codex/skills/openyapi/SKILL.md'), 'utf8'),
+    readFileSync(join(installed, '.agents/skills/openyapi/SKILL.md'), 'utf8'));
   const configHome = join(staging, 'config');
   const cleanEnvironment = {
     XDG_CONFIG_HOME: configHome,

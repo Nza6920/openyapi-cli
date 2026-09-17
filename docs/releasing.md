@@ -4,7 +4,7 @@ This runbook separates repository preparation from external publication. Merging
 the workflow, passing checks, or implementing an issue does not authorize
 publication. Issues #20 and #22 are explicit human gates.
 
-## Repository gate
+## First-release repository gate (0.1.0, completed)
 
 The release candidate is fixed to package `openyapi-cli`, version `0.1.0`, the
 `main` branch, and initial dist-tag `next`. Before requesting publication:
@@ -86,7 +86,34 @@ settings are maintainer-confirmed; the full evidence boundary is recorded in
 workflow remains fixed to `0.1.0` and its removed token. A future version
 needs a separate OIDC-based publish workflow.
 
-Record fixture, tarball, remote CI, registry, and real-instance results
-separately in [the Sprint 3 acceptance record](acceptance/sprint3.md). A failure
-in one layer stops later gates; a public defect is fixed forward as `0.1.1`
-unless a current security policy requires a separately authorized response.
+## 0.1.1 Agent Skill release
+
+Target: `openyapi-cli@0.1.1`, dist-tag `latest`, from the accepted commit on
+`main`. The new [publish-0.1.1.yml](../.github/workflows/publish-0.1.1.yml)
+workflow is manual, bound to the protected `npm-production` Environment, and
+uses npm Trusted Publishing with OIDC. It has no npm token secret or automatic
+retry. The first-release workflow remains fixed to `0.1.0`.
+
+Before triggering publication, verify `npm ci`, `npm run check`,
+`npm run test:package`, and `npm pack --json` locally and require Linux,
+Windows, and macOS CI jobs on Node 22 and 24 to pass at the exact candidate SHA.
+Check that `package.json`, `package-lock.json`, the changelog, and the tarball
+all identify `0.1.1`. Confirm the registry still lacks `0.1.1` and `latest`
+still points to the expected prior version. Create annotated tag `v0.1.1` at
+the accepted SHA.
+
+The package owner must add an npm Trusted Publisher connection for GitHub
+repository `Nza6920/openyapi-cli`, workflow filename `publish-0.1.1.yml`,
+Environment `npm-production`, with direct `npm publish` allowed. npm checks
+these fields exactly; `npm whoami` cannot verify OIDC publishing. Once this
+connection is confirmed, trigger **Publish 0.1.1 to npm latest** from `main`
+and approve its protected Environment job. The workflow publishes once and
+polls the registry for the exact version and `latest` tag. A timeout or
+failure after its publish step requires a registry read before any rerun.
+
+After publication, install the exact version from the public registry in a
+fresh directory. Verify the bundled Skill and `npx openyapi-cli@0.1.1 install`
+against a temporary project, then verify `latest` resolves to the same tarball.
+Create the GitHub Release from `v0.1.1` and the changelog after the registry
+checks pass. Record local tarball, remote CI, registry, and real-instance
+results separately; this release does not require a YApi write.

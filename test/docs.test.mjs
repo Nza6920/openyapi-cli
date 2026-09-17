@@ -14,8 +14,9 @@ test('Chinese and English READMEs expose equivalent stable quick starts', () => 
     [english, ['## Version information', '## Quick Start', '## Command reference', '## Compatibility and acceptance status']],
   ]) {
     for (const heading of headings) assert.match(document, new RegExp(heading));
-    assert.match(document, /npm install --global openyapi-cli@0\.1\.0/);
-    assert.match(document, /npx --package openyapi-cli@0\.1\.0 openyapi/);
+    assert.match(document, /npm install --global openyapi-cli@0\.1\.1/);
+    assert.match(document, /npx --package openyapi-cli@0\.1\.1 openyapi/);
+    assert.match(document, /npx openyapi-cli@latest install/);
     assert.match(document, /openyapi --version/);
     assert.match(document, /openyapi info/);
     assert.match(document, /openyapi config token set default --stdin/);

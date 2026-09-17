@@ -1,3 +1,4 @@
+import { createInterface } from 'node:readline/promises';
 import {
   Command,
   CommanderError,
@@ -20,6 +21,8 @@ import { readImportInput, readJsonInput } from './input.js';
 import { writeResult } from './output.js';
 import type { OutputFormat, Table } from './output.js';
 import { YApiQueries } from './queries.js';
+import { installGlobalCli, installSkills, preflightSkills, runningFromNpxCache, skillAgents } from './skill-install.js';
+import type { SkillAgent, SkillScope } from './skill-install.js';
 import { YApiWrites } from './writes.js';
 
 export interface OutputStreams {
@@ -87,6 +90,7 @@ export async function run(
     });
 
   configureConfigCommands(program, streams);
+  configureSkillCommands(program, streams, version);
   configureQueryCommands(program, streams);
   configureImportCommand(program, streams);
   program.action(() => program.outputHelp());
@@ -107,6 +111,83 @@ export async function run(
     writeError(new CliError('INTERNAL_ERROR', 'Unexpected CLI failure.'), streams.stderr);
     return 1;
   }
+}
+
+function configureSkillCommands(program: Command, streams: OutputStreams, version: string): void {
+  configureSkillInstall(program.command('install'), streams, version);
+  configureSkillInstall(program.command('skill').description('Manage the bundled agent skill.').command('install'), streams, version);
+}
+
+function configureSkillInstall(command: Command, streams: OutputStreams, version: string): void {
+  command.description('Install the openyapi skill for an agent and scope.')
+    .option('--agent <names>', 'comma-separated agents: codex, opencode, general')
+    .addOption(new Option('--scope <scope>', 'installation scope').choices(['project', 'user']))
+    .option('--project-dir <path>', 'project directory (defaults to current directory)')
+    .option('--install-cli', 'also install this CLI globally')
+    .option('--force', 'replace a different existing skill')
+    .action(async (options: {
+      agent?: string;
+      scope?: SkillScope;
+      projectDir?: string;
+      installCli?: boolean;
+      force?: boolean;
+    }, command: Command) => {
+      let scope = options.scope;
+      let agents = options.agent === undefined ? undefined : parseAgents(options.agent);
+      let installCli = options.installCli ?? false;
+      let interactive = false;
+      if (!agents || !scope) {
+        if (!process.stdin.isTTY || !process.stderr.isTTY) {
+          throw new UsageError('Use --agent and --scope when no interactive terminal is available.');
+        }
+        interactive = true;
+        const prompt = createInterface({ input: process.stdin, output: process.stderr });
+        try {
+          scope ??= await choose(prompt, 'Select install scope', ['project', 'user']);
+          agents ??= parseAgents(await prompt.question('Select agents to install (1: codex, 2: opencode, 3: general; comma-separated): '));
+          if (runningFromNpxCache() && !installCli) {
+            const answer = (await prompt.question('Install openyapi globally so the CLI remains available? [Y/n]: ')).trim().toLowerCase();
+            installCli = answer === '' || answer === 'y' || answer === 'yes';
+          }
+        } finally {
+          prompt.close();
+        }
+      }
+      const installation = { agents, scope, ...(options.projectDir === undefined ? {} : { projectDir: options.projectDir }), force: options.force ?? false };
+      preflightSkills(installation);
+      if (interactive) streams.stderr('Installing...\n');
+      if (installCli) installGlobalCli(version);
+      const result = installSkills(installation);
+      if (interactive) {
+        streams.stderr(`Install summary (${scope}):\n`);
+        for (const item of result.results) streams.stderr(`  [${item.status}] ${item.agent}: ${item.path}\n`);
+        if (installCli) streams.stderr('Global CLI installed.\n');
+      }
+      writeResult({ ...result, cli: installCli ? 'globally-installed' : 'unchanged' }, outputFormat(command), streams.stdout);
+    });
+}
+
+function parseAgents(value: string): SkillAgent[] {
+  const agents = value.split(/[\s,]+/).filter(Boolean).map((part) => {
+    const index = Number(part) - 1;
+    const candidate = Number.isInteger(index) && index >= 0 ? skillAgents[index] : part;
+    if (!skillAgents.includes(candidate as SkillAgent)) throw new UsageError(`Unknown agent: ${part}`);
+    return candidate as SkillAgent;
+  });
+  if (agents.length === 0) throw new UsageError('Select at least one agent.');
+  return [...new Set(agents)];
+}
+
+async function choose<const T extends string>(
+  prompt: ReturnType<typeof createInterface>,
+  label: string,
+  choices: readonly T[],
+): Promise<T> {
+  const answer = (await prompt.question(`${label} (${choices.map((choice, index) => `${index + 1}: ${choice}`).join(', ')}): `)).trim().toLowerCase();
+  const index = Number(answer) - 1;
+  const selection = Number.isInteger(index) && index >= 0 ? choices[index] : choices.find((choice) => choice === answer);
+  if (!selection) throw new UsageError(`Invalid ${label.toLowerCase()}: ${answer}`);
+  return selection;
 }
 
 function configureImportCommand(program: Command, streams: OutputStreams): void {

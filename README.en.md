@@ -6,24 +6,24 @@ A YApi OpenAPI command-line client for developers, AI agents, and CI. It covers 
 
 ## Version information
 
-- Stable version contract: `0.1.0`
+- Current version: `0.1.1` (first stable release: `0.1.0`)
 - npm package: `openyapi-cli`
 - Executable: `openyapi`
 - Minimum runtime: Node 22
 - Verified runtime matrix: Node 22 and Node 24; `engines.node >=22` does not claim that every future Node major has been tested
 
-`0.1.0` is published publicly and can be installed from npm. The [GitHub Release `v0.1.0`](https://github.com/Nza6920/openyapi-cli/releases/tag/v0.1.0) is available. The public registry resolves both `next` and `latest` to the same `0.1.0` package, and real YApi read-only acceptance is complete. See the [Sprint 3 acceptance record](docs/acceptance/sprint3.md) for layered evidence.
+`0.1.1` adds the Agent Skill installer. `0.1.0` is published publicly; see the [Sprint 3 acceptance record](docs/acceptance/sprint3.md) for its real YApi read-only acceptance evidence.
 
 ## Quick Start
 
 Install from the registry or run the exact version temporarily:
 
 ```sh
-npm install --global openyapi-cli@0.1.0
+npm install --global openyapi-cli@0.1.1
 openyapi --version
 openyapi info
 
-npx --package openyapi-cli@0.1.0 openyapi --version
+npx --package openyapi-cli@0.1.1 openyapi --version
 ```
 
 Create a profile, store its token through stdin, and run a read-only query:
@@ -37,6 +37,14 @@ openyapi project get --profile default
 ```
 
 The URL and project ID are placeholders. Never put a token in command arguments, a repository, or logs.
+
+The repository also provides an [openyapi Agent Skill](.agents/skills/openyapi/SKILL.md) for agents using the CLI. It is included in `0.1.1`; run:
+
+```sh
+npx openyapi-cli@latest install
+```
+
+The installer first prompts for project or user scope, then lets you select Codex, OpenCode, General, or several of them. Project paths are `.codex/skills`, `.opencode/skills`, and `.agents/skills`; user paths are `~/.codex/skills`, `~/.config/opencode/skills`, and `~/.agents/skills`. When run interactively from the npx cache, it also asks whether to install the same CLI version globally for persistent use. For non-interactive use, pass `--agent codex,general --scope project`, and add `--install-cli` to request a global CLI installation; project scope uses the current directory unless `--project-dir <path>` is given. An identical skill is left alone; replacing different content requires `--force`. A global CLI installation can also run `openyapi install` or `openyapi skill install`. Skill installation does not connect to YApi. Ordinary npm installation does not prompt.
 
 ## Command reference
 

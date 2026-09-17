@@ -1,6 +1,6 @@
 {
   "name": "openyapi-cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A scriptable CLI client for the official YApi OpenAPI",
   "license": "MIT",
   "repository": {
@@ -20,6 +20,7 @@
     "openyapi": "dist/main.js"
   },
   "files": [
+    ".agents/skills/openyapi",
     "dist",
     "docs",
     "CHANGELOG.md",

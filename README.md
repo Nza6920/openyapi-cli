@@ -6,24 +6,24 @@
 
 ## 版本信息
 
-- 稳定版本契约：`0.1.0`
+- 当前版本：`0.1.1`（首个稳定版本为 `0.1.0`）
 - npm 包名：`openyapi-cli`
 - 可执行命令：`openyapi`
 - 最低运行时：Node.js 22
 - 已验证运行时矩阵：Node 22、Node 24；`engines.node >=22` 不表示所有未来 Node 主版本都已经验证
 
-`0.1.0` 已公开发布；可从 npm 安装。[GitHub Release `v0.1.0`](https://github.com/Nza6920/openyapi-cli/releases/tag/v0.1.0) 已创建。公开 registry 的 `next` 与 `latest` 均解析为同一 `0.1.0` 包，真实 YApi 只读验收已完成。完整分层证据见 [Sprint 3 验收记录](docs/acceptance/sprint3.md)。
+`0.1.1` 增加 Agent Skill 安装器。`0.1.0` 已公开发布，其真实 YApi 只读验收证据见 [Sprint 3 验收记录](docs/acceptance/sprint3.md)。
 
 ## 快速开始
 
 从 registry 安装或临时执行：
 
 ```sh
-npm install --global openyapi-cli@0.1.0
+npm install --global openyapi-cli@0.1.1
 openyapi --version
 openyapi info
 
-npx --package openyapi-cli@0.1.0 openyapi --version
+npx --package openyapi-cli@0.1.1 openyapi --version
 ```
 
 创建 profile，通过 stdin 保存 token，再执行只读查询：
@@ -37,6 +37,14 @@ openyapi project get --profile default
 ```
 
 示例中的地址和项目 ID 是占位值；token 不应写入命令参数、仓库或日志。
+
+仓库提供 [openyapi Agent Skill](.agents/skills/openyapi/SKILL.md)，指导 Agent 使用 CLI 查询项目、分类和接口，以及执行写入、导入与写后核对。`0.1.1` 包含该 Skill，可运行：
+
+```sh
+npx openyapi-cli@latest install
+```
+
+安装器先提示选择范围（当前项目或当前用户），再选择一个或多个 Agent：Codex、OpenCode、General。对应的项目目录为 `.codex/skills`、`.opencode/skills`、`.agents/skills`；用户级目录为 `~/.codex/skills`、`~/.config/opencode/skills`、`~/.agents/skills`。从 npx 缓存交互运行时，还会询问是否将同版本 CLI 全局安装，以便之后直接运行 `openyapi`。非交互环境可传入 `--agent codex,general --scope project`，并用 `--install-cli` 显式安装全局 CLI；项目范围默认写入当前目录，也可指定 `--project-dir <path>`。相同内容重复安装不修改文件；目标已有不同内容时需显式 `--force`。全局安装 CLI 后也可运行 `openyapi install`，`openyapi skill install` 是等价入口。Skill 安装不连接 YApi。普通 npm 安装本身不会弹菜单。
 
 ## 命令参考
 

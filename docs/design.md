@@ -1,6 +1,6 @@
 # 技术选型与行为约定
 
-状态：2026-09-16；迭代 2 的全部端点及分层验收已完成。迭代 3 的 `0.1.0` 已公开发布，三平台 CI、public-registry 安装、真实实例只读验收和 GitHub Release 均已完成，分层证据见 [Sprint 3 验收记录](acceptance/sprint3.md)。
+状态：2026-09-17；迭代 2 的全部端点及分层验收已完成。迭代 3 的 `0.1.0` 已公开发布，分层证据见 [Sprint 3 验收记录](acceptance/sprint3.md)。当前源码版本 `0.1.1` 增加 Agent Skill 安装器。
 
 ## 已确认的产品边界
 
@@ -40,6 +40,7 @@ src/queries.ts       端点映射、身份预检与分页协议
 src/writes.ts        写入字段契约、归属预检与五个 POST 映射
 src/errors.ts        稳定错误分类
 src/output.ts        结果格式化
+src/skill-install.ts Agent Skill 的本地安装
 test/cli.test.mjs    编译后 CLI 的黑盒测试
 test/sprint1.test.mjs 编译后 CLI + 本地 HTTP fixture 验收
 test/sprint2.test.mjs 编译后写入 CLI + 本地 HTTP fixture 验收
@@ -89,9 +90,11 @@ YApi 文档使用项目 token：GET 放 query、POST 放 body；不默认转换�
 
 ## 打包与发布
 
-`bin` 指向 dist/main.js，文件包含 Node.js shebang；`prepack` 构建产物；files 白名单包含 dist、docs、英文 README，以及 npm 自动包含的包元数据、简体中文 README、LICENSE。生产安装不需要 TypeScript，也不运行构建脚本。
+`bin` 指向 dist/main.js，文件包含 Node.js shebang；`prepack` 构建产物；当前源码的 files 白名单包含 dist、docs、英文 README 和 `.agents/skills/openyapi/SKILL.md`，以及 npm 自动包含的包元数据、简体中文 README、LICENSE。生产安装不需要 TypeScript，也不运行构建脚本；已发布的 `0.1.0` 尚不包含 Skill 和安装器。
 
-当前稳定版本 `0.1.0` 已公开发布。包内包含真实 repository/bugs/homepage、public access 元数据与 changelog；`npm run test:package` 对真实 tarball 的名称、版本、白名单、bin、生产依赖安装、配置/脱敏、fixture 请求和失败契约做检查。
+`openyapi install`（别名 `openyapi skill install`）从包内复制 Skill 到 Codex、OpenCode、General 所选 Agent 的项目或用户技能目录；支持多选。缺少 `--agent`/`--scope` 时仅在交互终端提示选择；非交互环境要求显式参数。从 npx 缓存交互执行时询问是否安装同版本的全局 CLI；非交互执行须用 `--install-cli` 显式请求。相同文件重复安装是 no-op，不同内容默认保留，`--force` 才替换。安装器不通过 npm 生命周期脚本自动运行，因此普通 npm install 和 CI 不触发提示或写入 Agent 目录。交互提示输出到 stderr，最终结果仍是 stdout 的单个 JSON 值。
+
+`0.1.0` 已公开发布；当前源码版本为 `0.1.1`。包内包含真实 repository/bugs/homepage、public access 元数据与 changelog；`npm run test:package` 对真实 tarball 的名称、版本、白名单、bin、生产依赖安装、配置/脱敏、fixture 请求和失败契约做检查。
 
 首发 workflow 只接受从默认 `main` 手动触发，固定包名 `openyapi-cli`、版本 `0.1.0` 和 dist-tag `next`，job 绑定 `npm-production` Environment，并要求 public access 与 provenance。首发 run 35060694115 的 `npm publish` 成功，随后即时 registry 回读遇到传播延迟而误报失败；workflow 现以有界轮询处理该状态，且从不重发版本。同一 Environment 审批的只读 recovery run 35061977777 验证固定 tag/source、tarball integrity、`next` 和 provenance 全部通过。公开 registry 当前同时读回 `next/latest=0.1.0`，尽管 workflow 没有 `npm dist-tag` 命令；Issue #22 核对后没有重复变更 tag。真实实例只读验收、Trusted Publisher 配置、首次 token 与 Environment secret 撤销，以及 [GitHub Release `v0.1.0`](https://github.com/Nza6920/openyapi-cli/releases/tag/v0.1.0) 均已完成；证据与交互式 npm 配置的验证边界见 [验收记录](acceptance/sprint3.md)。首发 workflow 仍固定为一次性 `0.1.0` 发布流程，后续版本须使用无一次性 token 的 OIDC 工作流。
 

@@ -57,3 +57,17 @@ test('post-publication recovery verifies the fixed artifact without writing npm 
   assert.match(workflow, /gitCommit/);
   assert.doesNotMatch(workflow, /npm publish|npm dist-tag|NODE_AUTH_TOKEN|secrets\./);
 });
+
+test('0.1.1 release uses a separate protected OIDC workflow without a token', () => {
+  const workflow = read('.github/workflows/publish-0.1.1.yml');
+  assert.match(workflow, /^on:\r?\n  workflow_dispatch:\s*$/m);
+  assert.match(workflow, /environment: npm-production/);
+  assert.match(workflow, /id-token: write/);
+  assert.match(workflow, /EXPECTED_VERSION: 0\.1\.1/);
+  assert.match(workflow, /EXPECTED_TAG: latest/);
+  assert.match(workflow, /npm run check/);
+  assert.match(workflow, /npm run test:package/);
+  assert.match(workflow, /\.agents\/skills\/openyapi\/SKILL\.md/);
+  assert.match(workflow, /npm publish --access public --tag "\$EXPECTED_TAG"/);
+  assert.doesNotMatch(workflow, /NODE_AUTH_TOKEN|NPM_TOKEN|secrets\.|npm dist-tag|npm unpublish/);
+});

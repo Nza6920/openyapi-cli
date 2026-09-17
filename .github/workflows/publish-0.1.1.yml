@@ -1,0 +1,120 @@
+name: Publish 0.1.1 to npm latest
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  EXPECTED_NAME: openyapi-cli
+  EXPECTED_VERSION: 0.1.1
+  EXPECTED_TAG: latest
+  EXPECTED_REGISTRY: https://registry.npmjs.org/
+
+jobs:
+  publish:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: npm-production
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: ${{ env.EXPECTED_REGISTRY }}
+          package-manager-cache: false
+
+      - name: Verify source and release metadata
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF" = "refs/heads/main"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const pkg = JSON.parse(readFileSync("package.json", "utf8"));
+            const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+            if (pkg.name !== process.env.EXPECTED_NAME || pkg.version !== process.env.EXPECTED_VERSION) process.exit(1);
+            if (lock.name !== pkg.name || lock.version !== pkg.version) process.exit(1);
+            if (lock.packages?.[""]?.name !== pkg.name || lock.packages?.[""]?.version !== pkg.version) process.exit(1);
+            if (pkg.publishConfig?.access !== "public" || pkg.publishConfig?.registry !== process.env.EXPECTED_REGISTRY) process.exit(1);
+            if (pkg.repository?.url !== "git+https://github.com/Nza6920/openyapi-cli.git") process.exit(1);
+          '
+
+      - name: Verify annotated release tag points to this commit
+        run: |
+          set -euo pipefail
+          git fetch --depth=1 origin "refs/tags/v$EXPECTED_VERSION:refs/tags/v$EXPECTED_VERSION"
+          test "$(git cat-file -t "v$EXPECTED_VERSION")" = tag
+          test "$(git rev-list -n 1 "v$EXPECTED_VERSION")" = "$GITHUB_SHA"
+
+      - run: npm ci
+      - run: npm run check
+      - run: npm run test:package
+
+      - name: Inspect release tarball
+        run: |
+          set -euo pipefail
+          pack_json="$(npm pack --json --pack-destination "$RUNNER_TEMP")"
+          PACK_JSON="$pack_json" node --input-type=module -e '
+            const [packed] = JSON.parse(process.env.PACK_JSON);
+            if (packed?.name !== process.env.EXPECTED_NAME || packed?.version !== process.env.EXPECTED_VERSION) process.exit(1);
+            const files = new Set(packed.files?.map(({ path }) => path));
+            if (!files.has("dist/main.js") || !files.has(".agents/skills/openyapi/SKILL.md")) process.exit(1);
+          '
+
+      - name: Confirm target version is unpublished
+        run: |
+          set -euo pipefail
+          set +e
+          view_output="$(npm view "$EXPECTED_NAME@$EXPECTED_VERSION" version --registry="$EXPECTED_REGISTRY" 2>&1)"
+          view_status=$?
+          set -e
+          if [ "$view_status" -eq 0 ]; then
+            echo "::error::$EXPECTED_NAME@$EXPECTED_VERSION already exists; refusing to publish."
+            exit 1
+          fi
+          if [[ "$view_output" != *"E404"* && "$view_output" != *"404 Not Found"* ]]; then
+            echo "::error::Could not prove that the target version is unpublished."
+            exit 1
+          fi
+
+      - name: Publish once through npm trusted publishing
+        run: |
+          set -euo pipefail
+          set +e
+          npm publish --access public --tag "$EXPECTED_TAG"
+          publish_status=$?
+          set -e
+
+          registry_version=""
+          registry_tag=""
+          read_status=1
+          tag_status=1
+          for attempt in {1..12}; do
+            set +e
+            registry_version="$(npm view "$EXPECTED_NAME@$EXPECTED_VERSION" version --registry="$EXPECTED_REGISTRY" 2>/dev/null)"
+            read_status=$?
+            registry_tag="$(npm view "$EXPECTED_NAME" "dist-tags.$EXPECTED_TAG" --registry="$EXPECTED_REGISTRY" 2>/dev/null)"
+            tag_status=$?
+            set -e
+            if [ "$read_status" -eq 0 ] && [ "$registry_version" = "$EXPECTED_VERSION" ] \
+              && [ "$tag_status" -eq 0 ] && [ "$registry_tag" = "$EXPECTED_VERSION" ]; then
+              break
+            fi
+            if [ "$attempt" -lt 12 ]; then sleep 5; fi
+          done
+
+          if [ "$publish_status" -ne 0 ]; then
+            echo "::error::Publish reported failure. Treat the outcome as unknown; inspect registry state before any retry."
+            exit 1
+          fi
+          if [ "$read_status" -ne 0 ] || [ "$registry_version" != "$EXPECTED_VERSION" ] \
+            || [ "$tag_status" -ne 0 ] || [ "$registry_tag" != "$EXPECTED_VERSION" ]; then
+            echo "::error::Publish returned success, but exact version and latest tag were not both confirmed."
+            exit 1
+          fi
