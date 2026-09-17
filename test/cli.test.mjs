@@ -64,7 +64,7 @@ test('skill install targets the selected project and preserves existing content'
     assert.deepEqual(JSON.parse(first.stdout).results.map(({ status }) => status), ['installed', 'installed']);
     assert.equal(existsSync(target), true);
     assert.equal(existsSync(generalTarget), true);
-    assert.match(readFileSync(target, 'utf8'), /^---\nname: openyapi\n/);
+    assert.match(readFileSync(target, 'utf8'), /^---\r?\nname: openyapi\r?\n/);
     assert.deepEqual(JSON.parse(invoke(...args).stdout).results.map(({ status }) => status), ['unchanged', 'unchanged']);
 
     writeFileSync(target, 'local version\n');
@@ -76,7 +76,7 @@ test('skill install targets the selected project and preserves existing content'
     const replaced = invoke(...args, '--force');
     assert.equal(replaced.status, 0, replaced.stderr);
     assert.deepEqual(JSON.parse(replaced.stdout).results.map(({ status }) => status), ['replaced', 'unchanged']);
-    assert.match(readFileSync(target, 'utf8'), /^---\nname: openyapi\n/);
+    assert.match(readFileSync(target, 'utf8'), /^---\r?\nname: openyapi\r?\n/);
   } finally {
     rmSync(project, { recursive: true, force: true });
   }
