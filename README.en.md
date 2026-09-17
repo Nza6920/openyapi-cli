@@ -12,7 +12,7 @@ A YApi OpenAPI command-line client for developers, AI agents, and CI. It covers 
 - Minimum runtime: Node 22
 - Verified runtime matrix: Node 22 and Node 24; `engines.node >=22` does not claim that every future Node major has been tested
 
-`0.1.1` adds the Agent Skill installer. `0.1.0` is published publicly; see the [Sprint 3 acceptance record](docs/acceptance/sprint3.md) for its real YApi read-only acceptance evidence.
+`0.1.1` adds the Agent Skill installer and is publicly available. The [0.1.1 release acceptance](docs/acceptance/0.1.1.md) records CI, registry, installation, and provenance evidence. See the [Sprint 3 acceptance record](docs/acceptance/sprint3.md) for the previous `0.1.0` real YApi read-only acceptance.
 
 ## Quick Start
 

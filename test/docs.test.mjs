@@ -25,7 +25,7 @@ test('Chinese and English READMEs expose equivalent stable quick starts', () => 
     assert.match(document, /Node(?:\.js)? 24/);
     assert.match(document, /docs\/acceptance\/sprint3\.md/);
     assert.match(document, /docs\/releasing\.md/);
-    assert.match(document, /published publicly|已公开发布/);
+    assert.match(document, /published publicly|publicly available|已公开发布/);
     assert.doesNotMatch(document, /0\.1\.0-alpha\.0|stage.*sprint2/i);
   }
 });

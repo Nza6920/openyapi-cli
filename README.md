@@ -12,7 +12,7 @@
 - 最低运行时：Node.js 22
 - 已验证运行时矩阵：Node 22、Node 24；`engines.node >=22` 不表示所有未来 Node 主版本都已经验证
 
-`0.1.1` 增加 Agent Skill 安装器。`0.1.0` 已公开发布，其真实 YApi 只读验收证据见 [Sprint 3 验收记录](docs/acceptance/sprint3.md)。
+`0.1.1` 增加 Agent Skill 安装器，已公开发布；[0.1.1 发布验收](docs/acceptance/0.1.1.md)记录了 CI、registry、安装和来源证明。`0.1.0` 的真实 YApi 只读验收证据见 [Sprint 3 验收记录](docs/acceptance/sprint3.md)。
 
 ## 快速开始
 
