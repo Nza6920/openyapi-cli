@@ -8,4 +8,6 @@ log/
 .env.*
 !.env.example
 .codegraph/
+.scratch/
+.serena/
 openyapi.local.json
