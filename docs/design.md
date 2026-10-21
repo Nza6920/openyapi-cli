@@ -40,7 +40,7 @@ src/queries.ts       端点映射、身份预检与分页协议
 src/writes.ts        写入字段契约、归属预检与五个 POST 映射
 src/errors.ts        稳定错误分类
 src/output.ts        结果格式化
-src/skill-install.ts Agent Skill 的本地安装
+src/skill-install.ts Agent Skill 安装的预检、可选全局 CLI 安装、复制与结果汇总
 test/cli.test.mjs    编译后 CLI 的黑盒测试
 test/sprint1.test.mjs 编译后 CLI + 本地 HTTP fixture 验收
 test/sprint2.test.mjs 编译后写入 CLI + 本地 HTTP fixture 验收
@@ -93,6 +93,8 @@ YApi 文档使用项目 token：GET 放 query、POST 放 body；不默认转换�
 `bin` 指向 dist/main.js，文件包含 Node.js shebang；`prepack` 构建产物；当前源码的 files 白名单包含 dist、docs、英文 README 和 `.agents/skills/openyapi/SKILL.md`，以及 npm 自动包含的包元数据、简体中文 README、LICENSE。生产安装不需要 TypeScript，也不运行构建脚本；已发布的 `0.1.0` 尚不包含 Skill 和安装器。
 
 `openyapi install`（别名 `openyapi skill install`）从包内复制 Skill 到 Codex、OpenCode、General 所选 Agent 的项目或用户技能目录；支持多选。缺少 `--agent`/`--scope` 时仅在交互终端提示选择；非交互环境要求显式参数。从 npx 缓存交互执行时询问是否安装同版本的全局 CLI；非交互执行须用 `--install-cli` 显式请求。相同文件重复安装是 no-op，不同内容默认保留，`--force` 才替换。安装器不通过 npm 生命周期脚本自动运行，因此普通 npm install 和 CI 不触发提示或写入 Agent 目录。交互提示输出到 stderr，最终结果仍是 stdout 的单个 JSON 值。
+
+安装模块负责完整顺序：先检查全部目标，再执行用户选择的同版本全局 CLI 安装，复制前再次检查全部目标，最后逐个复制并汇总结果。CLI 负责参数、交互和呈现；首次预检通过后才输出交互模式的开始提示。目标冲突时不执行 npm，全局 CLI 安装失败时不复制 Skill；再次预检会发现 npm 执行期间出现的目标冲突。预检不保证后续复制全部成功；失败即停止，不回滚已经完成的全局 CLI 安装或 Skill 复制。编译后 CLI 测试通过 fake npm 验证这些时序及失败效果。
 
 `0.1.0` 已公开发布；当前源码版本为 `0.1.1`。包内包含真实 repository/bugs/homepage、public access 元数据与 changelog；`npm run test:package` 对真实 tarball 的名称、版本、白名单、bin、生产依赖安装、配置/脱敏、fixture 请求和失败契约做检查。
 

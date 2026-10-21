@@ -61,6 +61,8 @@ test('skill install targets the selected project and preserves existing content'
     const generalTarget = join(project, '.agents', 'skills', 'openyapi', 'SKILL.md');
     const first = invoke(...args);
     assert.equal(first.status, 0, first.stderr);
+    assert.equal(first.stderr, '');
+    assert.equal(JSON.parse(first.stdout).cli, 'unchanged');
     assert.deepEqual(JSON.parse(first.stdout).results.map(({ status }) => status), ['installed', 'installed']);
     assert.equal(existsSync(target), true);
     assert.equal(existsSync(generalTarget), true);
@@ -90,14 +92,22 @@ test('skill install requires explicit choices without a terminal', () => {
   assert.match(invoke('skill', 'install', '--help').stdout, /Install the openyapi skill/);
 });
 
-test('multi-agent preflight leaves every target untouched on conflict', () => {
+test('multi-agent preflight leaves every target untouched and skips npm on conflict', () => {
   const project = mkdtempSync(join(tmpdir(), 'openyapi-skill-conflict-'));
   try {
     const general = join(project, '.agents', 'skills', 'openyapi', 'SKILL.md');
     mkdirSync(join(project, '.agents', 'skills', 'openyapi'), { recursive: true });
     writeFileSync(general, 'custom skill\n');
-    const result = invoke('install', '--agent', 'codex,general', '--scope', 'project', '--project-dir', project);
+    const fakeNpm = join(project, 'fake-npm.cjs');
+    const npmCalled = join(project, 'npm-called');
+    writeFileSync(fakeNpm, 'require("node:fs").writeFileSync(process.env.MOCK_NPM_CALLED, "called");\n');
+    const result = spawnSync(process.execPath, [entry, 'install', '--agent', 'codex,general', '--scope', 'project', '--project-dir', project, '--install-cli'], {
+      encoding: 'utf8', env: { ...process.env, npm_execpath: fakeNpm, MOCK_NPM_CALLED: npmCalled },
+    });
     assert.equal(result.status, 1);
+    assert.equal(result.stdout, '');
+    assert.equal(JSON.parse(result.stderr).error.code, 'CONFIG_ERROR');
+    assert.equal(existsSync(npmCalled), false);
     assert.equal(existsSync(join(project, '.codex', 'skills', 'openyapi', 'SKILL.md')), false);
     assert.equal(readFileSync(general, 'utf8'), 'custom skill\n');
   } finally {
@@ -124,14 +134,95 @@ test('explicit global CLI setup invokes npm once before copying a skill', () => 
   try {
     const fakeNpm = join(project, 'fake-npm.cjs');
     const argumentsFile = join(project, 'npm-args.json');
-    writeFileSync(fakeNpm, 'require("node:fs").writeFileSync(process.env.MOCK_NPM_ARGS, JSON.stringify(process.argv.slice(2)));\n');
+    const target = join(project, '.agents', 'skills', 'openyapi', 'SKILL.md');
+    writeFileSync(fakeNpm, `
+      const fs = require('node:fs');
+      fs.appendFileSync(process.env.MOCK_NPM_ARGS, JSON.stringify({
+        args: process.argv.slice(2),
+        skillExists: fs.existsSync(process.env.MOCK_SKILL_TARGET),
+      }) + '\\n');
+    `);
     const result = spawnSync(process.execPath, [entry, 'install', '--agent', 'general', '--scope', 'project', '--project-dir', project, '--install-cli'], {
-      encoding: 'utf8', env: { ...process.env, npm_execpath: fakeNpm, MOCK_NPM_ARGS: argumentsFile },
+      encoding: 'utf8', env: { ...process.env, npm_execpath: fakeNpm, MOCK_NPM_ARGS: argumentsFile, MOCK_SKILL_TARGET: target },
     });
     assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(JSON.parse(readFileSync(argumentsFile, 'utf8')), ['install', '--global', `openyapi-cli@${version}`]);
+    assert.equal(result.stderr, '');
+    const calls = readFileSync(argumentsFile, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+    assert.deepEqual(calls, [{ args: ['install', '--global', `openyapi-cli@${version}`], skillExists: false }]);
     assert.equal(JSON.parse(result.stdout).cli, 'globally-installed');
-    assert.equal(existsSync(join(project, '.agents', 'skills', 'openyapi', 'SKILL.md')), true);
+    assert.equal(existsSync(target), true);
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test('failed global CLI installation copies no skills and reports the existing failure contract', () => {
+  const project = mkdtempSync(join(tmpdir(), 'openyapi-npm-failure-'));
+  try {
+    const fakeNpm = join(project, 'fake-npm.cjs');
+    const npmCalled = join(project, 'npm-called');
+    writeFileSync(fakeNpm, `
+      require('node:fs').appendFileSync(process.env.MOCK_NPM_CALLED, 'called\\n');
+      console.log('npm output');
+      console.error('npm failure');
+      process.exit(1);
+    `);
+    const result = spawnSync(process.execPath, [entry, 'skill', 'install', '--agent', 'codex,general', '--scope', 'project', '--project-dir', project, '--install-cli'], {
+      encoding: 'utf8', env: { ...process.env, npm_execpath: fakeNpm, MOCK_NPM_CALLED: npmCalled },
+    });
+    assert.equal(readFileSync(npmCalled, 'utf8'), 'called\n');
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, '');
+    assert.deepEqual(JSON.parse(result.stderr), {
+      error: { code: 'CONFIG_ERROR', message: 'Global CLI installation failed; no skill was installed.' },
+    });
+    assert.equal(existsSync(join(project, '.codex')), false);
+    assert.equal(existsSync(join(project, '.agents')), false);
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test('a conflict introduced during npm execution prevents every skill copy', () => {
+  const project = mkdtempSync(join(tmpdir(), 'openyapi-npm-conflict-'));
+  try {
+    const fakeNpm = join(project, 'fake-npm.cjs');
+    const general = join(project, '.agents', 'skills', 'openyapi', 'SKILL.md');
+    const npmCompleted = join(project, 'npm-completed');
+    writeFileSync(fakeNpm, `
+      const fs = require('node:fs');
+      const target = process.env.MOCK_SKILL_TARGET;
+      fs.mkdirSync(require('node:path').dirname(target), { recursive: true });
+      fs.writeFileSync(target, 'concurrent skill\\n');
+      fs.appendFileSync(process.env.MOCK_NPM_COMPLETED, 'completed\\n');
+    `);
+    const result = spawnSync(process.execPath, [entry, 'install', '--agent', 'codex,general', '--scope', 'project', '--project-dir', project, '--install-cli'], {
+      encoding: 'utf8',
+      env: { ...process.env, npm_execpath: fakeNpm, MOCK_SKILL_TARGET: general, MOCK_NPM_COMPLETED: npmCompleted },
+    });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, '');
+    assert.equal(JSON.parse(result.stderr).error.code, 'CONFIG_ERROR');
+    assert.equal(readFileSync(npmCompleted, 'utf8'), 'completed\n');
+    assert.equal(existsSync(join(project, '.codex')), false);
+    assert.equal(readFileSync(general, 'utf8'), 'concurrent skill\n');
+  } finally {
+    rmSync(project, { recursive: true, force: true });
+  }
+});
+
+test('a later skill copy failure preserves earlier completed copies', () => {
+  const project = mkdtempSync(join(tmpdir(), 'openyapi-copy-failure-'));
+  try {
+    // A file where a parent directory is needed makes copying fail after target preflight.
+    writeFileSync(join(project, '.agents'), 'blocked parent\n');
+    const result = invoke('install', '--agent', 'codex,general', '--scope', 'project', '--project-dir', project);
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, '');
+    assert.equal(JSON.parse(result.stderr).error.code, 'CONFIG_ERROR');
+    assert.equal(readFileSync(join(project, '.codex', 'skills', 'openyapi', 'SKILL.md'), 'utf8'),
+      readFileSync(new URL('../.agents/skills/openyapi/SKILL.md', import.meta.url), 'utf8'));
+    assert.equal(readFileSync(join(project, '.agents'), 'utf8'), 'blocked parent\n');
   } finally {
     rmSync(project, { recursive: true, force: true });
   }

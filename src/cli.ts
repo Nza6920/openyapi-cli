@@ -21,7 +21,7 @@ import { readImportInput, readJsonInput } from './input.js';
 import { writeResult } from './output.js';
 import type { OutputFormat, Table } from './output.js';
 import { YApiQueries } from './queries.js';
-import { installGlobalCli, installSkills, preflightSkills, runningFromNpxCache, skillAgents } from './skill-install.js';
+import { installSkills, runningFromNpxCache, skillAgents } from './skill-install.js';
 import type { SkillAgent, SkillScope } from './skill-install.js';
 import { YApiWrites } from './writes.js';
 
@@ -153,17 +153,21 @@ function configureSkillInstall(command: Command, streams: OutputStreams, version
           prompt.close();
         }
       }
-      const installation = { agents, scope, ...(options.projectDir === undefined ? {} : { projectDir: options.projectDir }), force: options.force ?? false };
-      preflightSkills(installation);
-      if (interactive) streams.stderr('Installing...\n');
-      if (installCli) installGlobalCli(version);
-      const result = installSkills(installation);
+      const result = installSkills({
+        agents,
+        scope,
+        ...(options.projectDir === undefined ? {} : { projectDir: options.projectDir }),
+        force: options.force ?? false,
+        ...(installCli ? { globalCliVersion: version } : {}),
+      }, () => {
+        if (interactive) streams.stderr('Installing...\n');
+      });
       if (interactive) {
         streams.stderr(`Install summary (${scope}):\n`);
         for (const item of result.results) streams.stderr(`  [${item.status}] ${item.agent}: ${item.path}\n`);
-        if (installCli) streams.stderr('Global CLI installed.\n');
+        if (result.cli === 'globally-installed') streams.stderr('Global CLI installed.\n');
       }
-      writeResult({ ...result, cli: installCli ? 'globally-installed' : 'unchanged' }, outputFormat(command), streams.stdout);
+      writeResult(result, outputFormat(command), streams.stdout);
     });
 }
 

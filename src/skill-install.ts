@@ -13,7 +13,7 @@ export function runningFromNpxCache(): boolean {
   return (process.argv[1] ?? '').split(/[\\/]/).includes('_npx');
 }
 
-export function installGlobalCli(version: string): void {
+function installGlobalCli(version: string): void {
   const npmCli = process.env.npm_execpath;
   if (!npmCli) throw new CliError('CONFIG_ERROR', 'npm executable path is unavailable for global CLI installation.');
   const result = spawnSync(process.execPath, [npmCli, 'install', '--global', `openyapi-cli@${version}`], { encoding: 'utf8' });
@@ -30,7 +30,7 @@ const agentDirectories: Record<SkillAgent, string> = {
 
 const source = fileURLToPath(new URL('../.agents/skills/openyapi/SKILL.md', import.meta.url));
 
-export function installSkill(options: {
+function installSkill(options: {
   agent: SkillAgent;
   scope: SkillScope;
   projectDir?: string;
@@ -94,7 +94,16 @@ export function installSkills(options: {
   scope: SkillScope;
   projectDir?: string;
   force?: boolean;
-}): { scope: SkillScope; results: ReturnType<typeof installSkill>[] } {
+  globalCliVersion?: string;
+}, onStart?: () => void): {
+  scope: SkillScope;
+  results: ReturnType<typeof installSkill>[];
+  cli: 'globally-installed' | 'unchanged';
+} {
+  preflightSkills(options);
+  onStart?.();
+  if (options.globalCliVersion !== undefined) installGlobalCli(options.globalCliVersion);
+  // Targets may have changed while npm was running. Check all of them before copying any skill.
   preflightSkills(options);
   const results = options.agents.map((agent) => installSkill({
     agent,
@@ -102,10 +111,14 @@ export function installSkills(options: {
     ...(options.projectDir === undefined ? {} : { projectDir: options.projectDir }),
     force: options.force ?? false,
   }));
-  return { scope: options.scope, results };
+  return {
+    scope: options.scope,
+    results,
+    cli: options.globalCliVersion === undefined ? 'unchanged' : 'globally-installed',
+  };
 }
 
-export function preflightSkills(options: {
+function preflightSkills(options: {
   agents: SkillAgent[];
   scope: SkillScope;
   projectDir?: string;
